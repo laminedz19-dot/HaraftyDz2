@@ -18,6 +18,9 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   accountType: mysqlEnum("accountType", ["customer", "provider"]).default("customer").notNull(),
+  subscriptionStatus: mysqlEnum("subscriptionStatus", ["inactive", "pending", "active", "rejected"]).default("inactive").notNull(),
+  subscriptionPlan: mysqlEnum("subscriptionPlan", ["monthly", "seasonal", "yearly"]),
+  subscriptionExpiresAt: timestamp("subscriptionExpiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -124,3 +127,23 @@ export type PushToken = typeof pushTokens.$inferSelect;
 export type InsertPushToken = typeof pushTokens.$inferInsert;
 export type ProviderReview = typeof providerReviews.$inferSelect;
 export type InsertProviderReview = typeof providerReviews.$inferInsert;
+
+export const subscriptionPayments = mysqlTable("subscriptionPayments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  plan: mysqlEnum("plan", ["monthly", "seasonal", "yearly"]).notNull(),
+  amount: int("amount").notNull(),
+  destinationAccount: varchar("destinationAccount", { length: 64 }).notNull(),
+  paymentKey: varchar("paymentKey", { length: 16 }).notNull(),
+  receiptUrl: varchar("receiptUrl", { length: 500 }).notNull(),
+  aiVerdict: mysqlEnum("aiVerdict", ["likely_valid", "needs_review", "likely_forged"]).default("needs_review").notNull(),
+  aiConfidence: int("aiConfidence").default(0).notNull(),
+  aiNotes: text("aiNotes"),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  adminNote: text("adminNote"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewedAt"),
+});
+
+export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
+export type InsertSubscriptionPayment = typeof subscriptionPayments.$inferInsert;

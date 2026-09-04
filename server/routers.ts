@@ -5,6 +5,8 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { storagePut } from "./storage";
 import { sendPushNotification } from "./_core/notification";
+import { storageGetSignedUrl } from "./storage";
+import { screenSubscriptionReceipt } from "./subscription-review";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -28,6 +30,7 @@ export const appRouter = router({
     createProfile: protectedProcedure.input(z.object({
       name: z.string().min(2), trade: z.string().min(2), category: z.string().min(2), bio: z.string().optional(), city: z.string().optional(), phone: z.string().optional(), hourlyRate: z.number().optional(),
     })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.subscriptionStatus !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "يلزم تفعيل اشتراك مدفوع ومراجع قبل إنشاء ملف الحرفي." });
       await db.updateUserAccountType(ctx.user.id, "provider");
       return db.createProviderProfile({ ...input, userId: ctx.user.id });
     }),
@@ -123,6 +126,42 @@ export const appRouter = router({
   notifications: router({
     list: protectedProcedure.query(({ ctx }) => db.listNotifications(ctx.user.id)),
     markRead: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input, ctx }) => db.markNotificationRead(input.id, ctx.user.id)),
+  }),
+
+  subscriptions: router({
+    plans: publicProcedure.query(() => ({ destinationAccount: "007999990008761821", paymentKey: "94", plans: [{ id: "monthly", label: "شهري", price: 1400, duration: "30 يوماً" }, { id: "seasonal", label: "موسمي", price: 4000, duration: "90 يوماً" }, { id: "yearly", label: "سنوي", price: 15000, duration: "365 يوماً" }] })),
+    mine: protectedProcedure.query(({ ctx }) => db.listUserSubscriptionPayments(ctx.user.id)),
+    submitReceipt: protectedProcedure.input(z.object({ plan: z.enum(["monthly", "seasonal", "yearly"]), base64: z.string().min(100).max(12_000_000), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]) })).mutation(async ({ input, ctx }) => {
+      const planData = { monthly: { amount: 1400, label: "شهري" }, seasonal: { amount: 4000, label: "موسمي" }, yearly: { amount: 15000, label: "سنوي" } }[input.plan];
+      const stored = await storagePut(`subscriptions/${ctx.user.id}/receipt`, Buffer.from(input.base64, "base64"), input.mimeType);
+      const signedUrl = await storageGetSignedUrl(stored.key);
+      const screening = await screenSubscriptionReceipt({ signedUrl, mimeType: input.mimeType, amount: planData.amount, planLabel: planData.label, destinationAccount: "007999990008761821", paymentKey: "94" });
+      const id = await db.createSubscriptionPayment({ userId: ctx.user.id, plan: input.plan, amount: planData.amount, destinationAccount: "007999990008761821", paymentKey: "94", receiptUrl: stored.url, aiVerdict: screening.verdict, aiConfidence: screening.confidence, aiNotes: screening.notes, status: "pending" });
+      await db.updateUserSubscription(ctx.user.id, "pending", input.plan, null);
+      await db.createNotification({ userId: ctx.user.id, title: "وصل الاشتراك قيد المراجعة", content: "تم استلام الوصل. لن يتم تفعيل الاشتراك حتى تتم الموافقة اليدوية." });
+      return { id, verdict: screening.verdict, confidence: screening.confidence, notes: screening.notes };
+    }),
+    adminList: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "هذه الصفحة مخصصة للإدارة." });
+      return db.listSubscriptionPayments();
+    }),
+    adminReview: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["approved", "rejected"]), adminNote: z.string().max(1000).optional() })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "هذه العملية مخصصة للإدارة." });
+      const payment = await db.getSubscriptionPayment(input.id);
+      if (!payment) throw new TRPCError({ code: "NOT_FOUND", message: "طلب الاشتراك غير موجود." });
+      await db.reviewSubscriptionPayment(input.id, input.status, input.adminNote);
+      if (input.status === "approved") {
+        const days = payment.plan === "monthly" ? 30 : payment.plan === "seasonal" ? 90 : 365;
+        const expires = new Date(); expires.setDate(expires.getDate() + days);
+        await db.updateUserSubscription(payment.userId, "active", payment.plan, expires);
+      } else {
+        await db.updateUserSubscription(payment.userId, "rejected", payment.plan, null);
+      }
+      const title = input.status === "approved" ? "تم تفعيل اشتراكك" : "تم رفض وصل الاشتراك";
+      const content = input.adminNote || (input.status === "approved" ? "أصبح حسابك مفعلاً حتى تاريخ انتهاء الاشتراك." : "راجع الوصل وأعد رفع صورة واضحة وصحيحة.");
+      await db.createNotification({ userId: payment.userId, title, content });
+      return { success: true } as const;
+    }),
   }),
 
   accounts: router({

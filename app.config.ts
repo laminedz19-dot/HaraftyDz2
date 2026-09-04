@@ -87,6 +87,7 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     "expo-image-picker",
+    "expo-document-picker",
     ["expo-notifications", { color: "#0F766E" }],
     ["expo-location", { locationWhenInUsePermission: "السماح لتطبيق خدمني باستخدام موقعك لتحديد عنوان الخدمة." }],
     [
