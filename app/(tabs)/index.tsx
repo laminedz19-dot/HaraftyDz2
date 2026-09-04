@@ -14,7 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 
-type Category = { id: string; label: string; icon: "wrench.and.screwdriver.fill" | "bolt.fill" | "drop.fill" | "paintbrush.fill" | "snowflake" };
+type Category = { id: string; label: string; icon: "wrench.and.screwdriver.fill" | "bolt.fill" | "drop.fill" | "paintbrush.fill" | "snowflake" | "sparkles" | "hammer.fill" | "leaf.fill" | "truck.box.fill" | "house.fill" };
 type Pro = { id: string; name: string; trade: string; rating: string; jobs: string; initials: string; color: string };
 
 const categories: Category[] = [
@@ -23,6 +23,11 @@ const categories: Category[] = [
   { id: "maintenance", label: "صيانة", icon: "wrench.and.screwdriver.fill" },
   { id: "painting", label: "دهان", icon: "paintbrush.fill" },
   { id: "ac", label: "تكييف", icon: "snowflake" },
+  { id: "cleaning", label: "تنظيف", icon: "sparkles" },
+  { id: "carpentry", label: "نجارة", icon: "hammer.fill" },
+  { id: "garden", label: "حدائق", icon: "leaf.fill" },
+  { id: "moving", label: "نقل أثاث", icon: "truck.box.fill" },
+  { id: "renovation", label: "ترميم", icon: "house.fill" },
 ];
 
 const pros: Pro[] = [

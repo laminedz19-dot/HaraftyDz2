@@ -31,6 +31,10 @@ const MAPPING = {
   "snowflake": "ac-unit",
   "arrow.left": "arrow-back",
   "plus": "add",
+  "sparkles": "auto-awesome",
+  "hammer.fill": "handyman",
+  "leaf.fill": "eco",
+  "truck.box.fill": "local-shipping",
 } as IconMapping;
 
 /**
