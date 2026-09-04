@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertUser, notifications, portfolioImages, providerProfiles, providerReviews, pushTokens, serviceRequests, users } from "../drizzle/schema";
+import { InsertMessage, InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertUser, messages, notifications, portfolioImages, providerProfiles, providerReviews, pushTokens, serviceRequests, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -136,10 +136,29 @@ export async function listServiceRequests(customerId: number) {
   return db.select().from(serviceRequests).where(eq(serviceRequests.customerId, customerId)).orderBy(desc(serviceRequests.createdAt));
 }
 
+export async function listProviderRequests(providerUserId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const provider = await getProviderProfileByUserId(providerUserId);
+  if (!provider) return [];
+  return db.select().from(serviceRequests).where(eq(serviceRequests.providerId, provider.id)).orderBy(desc(serviceRequests.createdAt));
+}
+
 export async function updateServiceRequestStatus(id: number, customerId: number, status: "pending" | "confirmed" | "completed" | "cancelled") {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(serviceRequests).set({ status }).where(eq(serviceRequests.id, id));
+}
+
+export async function updateProviderRequestStatus(id: number, providerUserId: number, status: "confirmed" | "completed" | "cancelled") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const provider = await getProviderProfileByUserId(providerUserId);
+  if (!provider) return false;
+  const request = await getServiceRequest(id);
+  if (!request || request.providerId !== provider.id) return false;
+  await db.update(serviceRequests).set({ status }).where(eq(serviceRequests.id, id));
+  return true;
 }
 
 export async function listPortfolioImages(providerId: number) {
@@ -200,6 +219,35 @@ export async function hasReviewForRequest(requestId: number) {
   if (!db) return false;
   const result = await db.select({ id: providerReviews.id }).from(providerReviews).where(eq(providerReviews.requestId, requestId)).limit(1);
   return result.length > 0;
+}
+
+export async function listConversation(conversationId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt);
+}
+
+export async function createMessage(data: InsertMessage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(messages).values(data);
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function markConversationRead(conversationId: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(messages).set({ read: true }).where(eq(messages.conversationId, conversationId));
+}
+
+export async function listUserConversations(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const sent = await db.select().from(messages).where(eq(messages.senderId, userId)).orderBy(desc(messages.createdAt));
+  const received = await db.select().from(messages).where(eq(messages.receiverId, userId)).orderBy(desc(messages.createdAt));
+  const all = [...sent, ...received].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const seen = new Set<string>();
+  return all.filter((message) => { if (seen.has(message.conversationId)) return false; seen.add(message.conversationId); return true; });
 }
 
 export async function createNotification(data: InsertNotification) {

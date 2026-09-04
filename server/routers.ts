@@ -52,7 +52,7 @@ export const appRouter = router({
   requests: router({
     list: protectedProcedure.query(({ ctx }) => db.listServiceRequests(ctx.user.id)),
     create: protectedProcedure.input(z.object({
-      providerId: z.number().optional(), category: z.string().min(2), subcategory: z.string().optional(), description: z.string().optional(), address: z.string().min(3), scheduledAt: z.coerce.date().optional(),
+      providerId: z.number().optional(), category: z.string().min(2), subcategory: z.string().optional(), description: z.string().optional(), address: z.string().min(3), latitude: z.string().optional(), longitude: z.string().optional(), scheduledAt: z.coerce.date().optional(),
     })).mutation(async ({ input, ctx }) => {
       const id = await db.createServiceRequest({ ...input, customerId: ctx.user.id, status: "pending" });
       await db.createNotification({ userId: ctx.user.id, title: "تم استلام طلبك", content: `طلب ${input.subcategory ?? input.category} قيد المراجعة وسنخبرك بأي تحديث.` });
@@ -68,6 +68,44 @@ export const appRouter = router({
       const tokens = await db.listPushTokens(ctx.user.id);
       await sendPushNotification(tokens.map((token) => token.token), { title, content });
       return { success: true } as const;
+    }),
+  }),
+
+  dashboard: router({
+    requests: protectedProcedure.query(({ ctx }) => db.listProviderRequests(ctx.user.id)),
+    updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["confirmed", "completed", "cancelled"]) })).mutation(async ({ input, ctx }) => {
+      const updated = await db.updateProviderRequestStatus(input.id, ctx.user.id, input.status);
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود في لوحة الحرفي." });
+      const request = await db.getServiceRequest(input.id);
+      if (request) {
+        const title = input.status === "confirmed" ? "تم تأكيد طلبك" : input.status === "completed" ? "اكتملت خدمتك" : "تم إلغاء الطلب";
+        const content = input.status === "confirmed" ? "الحرفي أكد موعد الخدمة." : input.status === "completed" ? "يمكنك الآن تقييم الحرفي وتجربتك." : "تم إلغاء طلب الخدمة.";
+        await db.createNotification({ userId: request.customerId, title, content });
+        const tokens = await db.listPushTokens(request.customerId);
+        await sendPushNotification(tokens.map((token) => token.token), { title, content });
+      }
+      return { success: true } as const;
+    }),
+  }),
+
+  chat: router({
+    conversations: protectedProcedure.query(({ ctx }) => db.listUserConversations(ctx.user.id)),
+    messages: protectedProcedure.input(z.object({ conversationId: z.string().min(1) })).query(async ({ input, ctx }) => {
+      const rows = await db.listConversation(input.conversationId);
+      if (rows.some((message) => message.senderId === ctx.user.id || message.receiverId === ctx.user.id)) {
+        await db.markConversationRead(input.conversationId);
+        return rows;
+      }
+      return [];
+    }),
+    send: protectedProcedure.input(z.object({ conversationId: z.string().min(1), receiverId: z.number(), content: z.string().min(1).max(2000) })).mutation(async ({ input, ctx }) => {
+      const content = input.content.trim();
+      const id = await db.createMessage({ conversationId: input.conversationId, senderId: ctx.user.id, receiverId: input.receiverId, content, read: false });
+      const title = "رسالة جديدة من خدمني";
+      await db.createNotification({ userId: input.receiverId, title, content });
+      const tokens = await db.listPushTokens(input.receiverId);
+      await sendPushNotification(tokens.map((token) => token.token), { title, content });
+      return { id };
     }),
   }),
 

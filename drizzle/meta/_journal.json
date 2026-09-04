@@ -29,6 +29,13 @@
       "when": 1788562961643,
       "tag": "0003_handy_deadpool",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1788563841823,
+      "tag": "0004_furry_typhoid_mary",
+      "breakpoints": true
     }
   ]
 }

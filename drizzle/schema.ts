@@ -54,6 +54,8 @@ export const serviceRequests = mysqlTable("serviceRequests", {
   subcategory: varchar("subcategory", { length: 120 }),
   description: text("description"),
   address: varchar("address", { length: 255 }).notNull(),
+  latitude: varchar("latitude", { length: 32 }),
+  longitude: varchar("longitude", { length: 32 }),
   scheduledAt: timestamp("scheduledAt"),
   status: mysqlEnum("status", ["draft", "pending", "confirmed", "completed", "cancelled"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -62,6 +64,19 @@ export const serviceRequests = mysqlTable("serviceRequests", {
 
 export type ServiceRequest = typeof serviceRequests.$inferSelect;
 export type InsertServiceRequest = typeof serviceRequests.$inferInsert;
+
+export const messages = mysqlTable("messages", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: varchar("conversationId", { length: 120 }).notNull(),
+  senderId: int("senderId").notNull(),
+  receiverId: int("receiverId").notNull(),
+  content: text("content").notNull(),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;
 
 export const portfolioImages = mysqlTable("portfolioImages", {
   id: int("id").autoincrement().primaryKey(),

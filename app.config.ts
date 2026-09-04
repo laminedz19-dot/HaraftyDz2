@@ -88,6 +88,7 @@ const config: ExpoConfig = {
     "expo-router",
     "expo-image-picker",
     ["expo-notifications", { color: "#0F766E" }],
+    ["expo-location", { locationWhenInUsePermission: "السماح لتطبيق خدمني باستخدام موقعك لتحديد عنوان الخدمة." }],
     [
       "expo-audio",
       {
