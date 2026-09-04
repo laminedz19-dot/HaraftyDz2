@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
@@ -10,6 +10,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { startOAuthLogin } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const DRAFT_KEY = "khadamni_provider_registration_draft";
 
 const planStyles = {
   monthly: { label: "شهري", duration: "30 يوماً" },
@@ -34,6 +37,8 @@ export default function SubscriptionScreen() {
   const [selected, setSelected] = useState<PlanId>("monthly");
   const [fileName, setFileName] = useState("");
   const [fileData, setFileData] = useState<{ base64: string; mimeType: ReceiptMime } | null>(null);
+  const [providerDraft, setProviderDraft] = useState<string | undefined>();
+  useEffect(() => { AsyncStorage.getItem(DRAFT_KEY).then((draft) => setProviderDraft(draft || undefined)).catch(() => undefined); }, []);
   const fallbackPlans = [
     { id: "monthly" as const, label: "شهري", price: 1400, duration: "30 يوماً" },
     { id: "seasonal" as const, label: "موسمي", price: 4000, duration: "90 يوماً" },
@@ -68,7 +73,7 @@ export default function SubscriptionScreen() {
       Alert.alert("أرفق الوصل أولاً", "اختر صورة أو ملف PDF لوصل التحويل.");
       return;
     }
-    uploadMutation.mutate({ plan: selected, base64: fileData.base64, mimeType: fileData.mimeType });
+    uploadMutation.mutate({ plan: selected, base64: fileData.base64, mimeType: fileData.mimeType, providerDraft });
   };
 
   return (

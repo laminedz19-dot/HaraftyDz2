@@ -43,6 +43,13 @@
       "when": 1788564655413,
       "tag": "0005_ordinary_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1788565737120,
+      "tag": "0006_flimsy_goblin_queen",
+      "breakpoints": true
     }
   ]
 }

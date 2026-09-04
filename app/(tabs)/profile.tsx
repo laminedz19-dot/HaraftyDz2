@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { startOAuthLogin } from "@/constants/oauth";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
-import * as Auth from "@/lib/_core/auth";
 
 const items = [
   { icon: "person.crop.circle.fill" as const, label: "بياناتي الشخصية", detail: "الاسم، الهاتف، العنوان" },
@@ -27,8 +26,7 @@ export default function ProfileScreen() {
       <View style={styles.profileCopy}><Text style={styles.profileName}>{displayName}</Text><Text style={styles.profileSub}>{isAuthenticated ? "حسابك متصل ويمكنك متابعة طلباتك" : "أكمل ملفك للحصول على تجربة أفضل"}</Text></View>
       <Pressable onPress={() => isAuthenticated ? logout() : startOAuthLogin()} style={styles.loginButton}><Text style={[styles.loginText, { color: colors.primary }]}>{isAuthenticated ? "خروج" : "دخول"}</Text></Pressable>
     </View>
-    <Pressable onPress={() => router.push("/subscription")} style={[styles.subscriptionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={[styles.subscriptionIcon, { backgroundColor: `${colors.primary}14` }]}><IconSymbol name="creditcard.fill" size={20} color={colors.primary} /></View><View style={styles.artisanCopy}><Text style={[styles.artisanTitle, { color: colors.foreground }]}>الاشتراك وتفعيل الحساب</Text><Text style={[styles.artisanBody, { color: colors.muted }]}>1400 دج شهرياً · ارفع وصل الدفع للمراجعة</Text></View><IconSymbol name="chevron.right" size={18} color={colors.primary} /></Pressable>
-    <Pressable onPress={async () => { if (!isAuthenticated) { await Auth.setPostAuthRedirect("/subscription"); await startOAuthLogin(); return; } if (user?.subscriptionStatus !== "active") { router.push("/subscription"); return; } await accountMutation.mutateAsync({ accountType: "provider" }); router.push("/dashboard"); }} style={[styles.artisanCard, { backgroundColor: "#E7F5F2" }]}><View style={[styles.artisanIcon, { backgroundColor: colors.primary }]}><IconSymbol name="wrench.and.screwdriver.fill" size={21} color="#FFFFFF" /></View><View style={styles.artisanCopy}><Text style={[styles.artisanTitle, { color: colors.foreground }]}>لوحة الحرفي</Text><Text style={[styles.artisanBody, { color: colors.muted }]}>{isAuthenticated ? "أدر طلباتك ومواعيدك واستقبل خدمات جديدة" : "سجّل الدخول لإدارة خدماتك كحرفي"}</Text></View><IconSymbol name="chevron.right" size={18} color={colors.primary} /></Pressable>
+    <Pressable onPress={() => router.push("/artisan-register")} style={[styles.artisanCard, { backgroundColor: "#E7F5F2" }]}><View style={[styles.artisanIcon, { backgroundColor: colors.primary }]}><IconSymbol name="wrench.and.screwdriver.fill" size={21} color="#FFFFFF" /></View><View style={styles.artisanCopy}><Text style={[styles.artisanTitle, { color: colors.foreground }]}>التسجيل كحرفي</Text><Text style={[styles.artisanBody, { color: colors.muted }]}>سجّل بياناتك ثم اختر باقة الاشتراك</Text></View><IconSymbol name="chevron.right" size={18} color={colors.primary} /></Pressable>
     <Text style={[styles.section, { color: colors.foreground }]}>الإعدادات</Text>
     <View style={[styles.settings, { backgroundColor: colors.surface, borderColor: colors.border }]}>{items.map((item) => <Pressable key={item.label} onPress={() => Alert.alert(item.label, "هذه الخاصية متاحة من ملفك الشخصي.")} style={({ pressed }) => [styles.settingRow, { borderBottomColor: colors.border }, pressed && { opacity: 0.7 }]}><View style={[styles.settingIcon, { backgroundColor: `${colors.primary}14` }]}><IconSymbol name={item.icon} size={20} color={colors.primary} /></View><View style={styles.settingCopy}><Text style={[styles.settingLabel, { color: colors.foreground }]}>{item.label}</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>{item.detail}</Text></View><IconSymbol name="chevron.right" size={16} color={colors.muted} /></Pressable>)}</View>
     <Text style={[styles.footer, { color: colors.muted }]}>خدمني · ابحث عن الأفضل بالقرب منك</Text>
@@ -46,8 +44,6 @@ const styles = StyleSheet.create({
   loginButton: { backgroundColor: "#FFFFFF", borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12 },
   loginText: { fontSize: 12, fontWeight: "800" },
   artisanCard: { borderRadius: 19, padding: 15, flexDirection: "row-reverse", alignItems: "center", gap: 11, marginTop: 18 },
-  subscriptionCard: { borderRadius: 19, padding: 15, flexDirection: "row-reverse", alignItems: "center", gap: 11, marginTop: 14, borderWidth: 1 },
-  subscriptionIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   artisanIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   artisanCopy: { flex: 1 },
   artisanTitle: { fontSize: 14, fontWeight: "800", textAlign: "right" },

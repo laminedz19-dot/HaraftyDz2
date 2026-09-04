@@ -131,12 +131,12 @@ export const appRouter = router({
   subscriptions: router({
     plans: publicProcedure.query(() => ({ destinationAccount: "007999990008761821", paymentKey: "94", plans: [{ id: "monthly", label: "شهري", price: 1400, duration: "30 يوماً" }, { id: "seasonal", label: "موسمي", price: 4000, duration: "90 يوماً" }, { id: "yearly", label: "سنوي", price: 15000, duration: "365 يوماً" }] })),
     mine: protectedProcedure.query(({ ctx }) => db.listUserSubscriptionPayments(ctx.user.id)),
-    submitReceipt: protectedProcedure.input(z.object({ plan: z.enum(["monthly", "seasonal", "yearly"]), base64: z.string().min(100).max(12_000_000), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]) })).mutation(async ({ input, ctx }) => {
+    submitReceipt: protectedProcedure.input(z.object({ plan: z.enum(["monthly", "seasonal", "yearly"]), base64: z.string().min(100).max(12_000_000), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), providerDraft: z.string().max(5000).optional() })).mutation(async ({ input, ctx }) => {
       const planData = { monthly: { amount: 1400, label: "شهري" }, seasonal: { amount: 4000, label: "موسمي" }, yearly: { amount: 15000, label: "سنوي" } }[input.plan];
       const stored = await storagePut(`subscriptions/${ctx.user.id}/receipt`, Buffer.from(input.base64, "base64"), input.mimeType);
       const signedUrl = await storageGetSignedUrl(stored.key);
       const screening = await screenSubscriptionReceipt({ signedUrl, mimeType: input.mimeType, amount: planData.amount, planLabel: planData.label, destinationAccount: "007999990008761821", paymentKey: "94" });
-      const id = await db.createSubscriptionPayment({ userId: ctx.user.id, plan: input.plan, amount: planData.amount, destinationAccount: "007999990008761821", paymentKey: "94", receiptUrl: stored.url, aiVerdict: screening.verdict, aiConfidence: screening.confidence, aiNotes: screening.notes, status: "pending" });
+      const id = await db.createSubscriptionPayment({ userId: ctx.user.id, plan: input.plan, amount: planData.amount, destinationAccount: "007999990008761821", paymentKey: "94", receiptUrl: stored.url, providerDraft: input.providerDraft, aiVerdict: screening.verdict, aiConfidence: screening.confidence, aiNotes: screening.notes, status: "pending" });
       await db.updateUserSubscription(ctx.user.id, "pending", input.plan, null);
       await db.createNotification({ userId: ctx.user.id, title: "وصل الاشتراك قيد المراجعة", content: "تم استلام الوصل. لن يتم تفعيل الاشتراك حتى تتم الموافقة اليدوية." });
       return { id, verdict: screening.verdict, confidence: screening.confidence, notes: screening.notes };
@@ -154,6 +154,15 @@ export const appRouter = router({
         const days = payment.plan === "monthly" ? 30 : payment.plan === "seasonal" ? 90 : 365;
         const expires = new Date(); expires.setDate(expires.getDate() + days);
         await db.updateUserSubscription(payment.userId, "active", payment.plan, expires);
+        if (payment.providerDraft && !(await db.getProviderProfileByUserId(payment.userId))) {
+          try {
+            const draft = JSON.parse(payment.providerDraft) as { firstName: string; lastName: string; phone: string; wilaya: string; municipality: string; trade: string };
+            await db.updateUserAccountType(payment.userId, "provider");
+            await db.createProviderProfile({ userId: payment.userId, name: `${draft.firstName} ${draft.lastName}`, trade: draft.trade, category: draft.trade, city: `${draft.municipality}, ${draft.wilaya}`, phone: draft.phone, bio: "حرفي مسجل عبر خدمني", verified: false });
+          } catch (error) {
+            console.warn("[Subscription] Approved payment but provider draft could not create profile", error);
+          }
+        }
       } else {
         await db.updateUserSubscription(payment.userId, "rejected", payment.plan, null);
       }

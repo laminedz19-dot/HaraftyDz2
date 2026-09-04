@@ -136,6 +136,7 @@ export const subscriptionPayments = mysqlTable("subscriptionPayments", {
   destinationAccount: varchar("destinationAccount", { length: 64 }).notNull(),
   paymentKey: varchar("paymentKey", { length: 16 }).notNull(),
   receiptUrl: varchar("receiptUrl", { length: 500 }).notNull(),
+  providerDraft: text("providerDraft"),
   aiVerdict: mysqlEnum("aiVerdict", ["likely_valid", "needs_review", "likely_forged"]).default("needs_review").notNull(),
   aiConfidence: int("aiConfidence").default(0).notNull(),
   aiNotes: text("aiNotes"),
