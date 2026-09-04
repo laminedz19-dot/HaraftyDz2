@@ -15,6 +15,13 @@
       "when": 1788561208813,
       "tag": "0001_slow_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1788561561197,
+      "tag": "0002_quick_ulik",
+      "breakpoints": true
     }
   ]
 }

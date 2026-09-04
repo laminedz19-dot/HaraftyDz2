@@ -1,8 +1,12 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/hooks/use-auth";
+import { startOAuthLogin } from "@/constants/oauth";
 
 const data: Record<string, { name: string; trade: string; category: string; rating: string; jobs: string; distance: string; price: string; initials: string; color: string; city: string; bio: string; skills: string[]; reviews: { name: string; text: string; rating: string }[] }> = {
   "1": { name: "ياسين بوعلام", trade: "كهربائي معتمد", category: "electric", rating: "4.9", jobs: "126", distance: "1.2 كم", price: "من 1,500 دج", initials: "يب", color: "#0F766E", city: "الجزائر العاصمة", bio: "أساعد العائلات وأصحاب الأعمال على حل مشاكل الكهرباء بسرعة وأمان، من الأعطال البسيطة إلى تمديدات المنازل الجديدة.", skills: ["إصلاح الأعطال", "تمديد الكهرباء", "تركيب الإنارة", "لوحات التوزيع"], reviews: [{ name: "أحمد ق.", text: "وصل في الموعد وأنهى العمل باحتراف.", rating: "5.0" }, { name: "سارة م.", text: "شرح المشكلة بوضوح وسعره مناسب.", rating: "4.8" }] },
@@ -15,6 +19,24 @@ export default function ProviderDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const provider = data[id ?? "1"] ?? data["1"];
+  const { isAuthenticated } = useAuth();
+  const portfolioQuery = trpc.portfolio.list.useQuery({ providerId: Number(id ?? 1) });
+  const uploadMutation = trpc.portfolio.upload.useMutation({ onSuccess: () => portfolioQuery.refetch() });
+  const pickPortfolioImage = async () => {
+    if (!isAuthenticated) {
+      Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول حتى تتمكن من إضافة أعمالك السابقة.", [{ text: "لاحقاً", style: "cancel" }, { text: "تسجيل الدخول", onPress: () => startOAuthLogin() }]);
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.82, base64: true });
+    if (result.canceled || !result.assets[0]?.base64) return;
+    try {
+      await uploadMutation.mutateAsync({ base64: result.assets[0].base64, mimeType: result.assets[0].mimeType ?? "image/jpeg", caption: "عمل سابق" });
+      Alert.alert("تم رفع الصورة", "أضيفت الصورة إلى معرض أعمالك.");
+    } catch {
+      Alert.alert("تعذر رفع الصورة", "تأكد من إنشاء ملف الحرفي ثم حاول مرة أخرى.");
+    }
+  };
+  const portfolio = portfolioQuery.data ?? [];
   return <ScreenContainer className="px-5" edges={["top", "left", "right"]}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
       <View style={styles.header}><Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface, borderColor: colors.border }]}><IconSymbol name="arrow.left" size={20} color={colors.foreground} /></Pressable><Text style={[styles.headerTitle, { color: colors.foreground }]}>ملف الحرفي</Text><Pressable onPress={() => Alert.alert("مشاركة", "يمكنك مشاركة ملف الحرفي مع عائلتك وأصدقائك.")}><Text style={[styles.share, { color: colors.primary }]}>مشاركة</Text></Pressable></View>
@@ -23,6 +45,7 @@ export default function ProviderDetailScreen() {
       <Pressable onPress={() => router.push({ pathname: "/request", params: { providerId: id ?? "1", category: provider.category } })} style={({ pressed }) => [styles.book, { backgroundColor: colors.primary }, pressed && { opacity: 0.82 }]}><Text style={styles.bookText}>اطلب هذه الخدمة</Text><IconSymbol name="chevron.right" size={19} color="#FFFFFF" /></Pressable>
       <View style={styles.section}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>نبذة عن الحرفي</Text><Text style={[styles.bio, { color: colors.muted }]}>{provider.bio}</Text><View style={styles.location}><IconSymbol name="location.fill" size={17} color={colors.primary} /><Text style={[styles.locationText, { color: colors.muted }]}>{provider.city} · {provider.price}</Text></View></View>
       <View style={styles.section}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>الخدمات التي يقدمها</Text><View style={styles.skills}>{provider.skills.map((skill) => <View key={skill} style={[styles.skill, { backgroundColor: `${colors.primary}14` }]}><Text style={[styles.skillText, { color: colors.primary }]}>{skill}</Text></View>)}</View></View>
+      <View style={styles.section}><View style={styles.reviewHeader}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>أعمال سابقة</Text><Pressable onPress={pickPortfolioImage}><Text style={[styles.seeAll, { color: colors.primary }]}>{uploadMutation.isPending ? "جارٍ الرفع..." : "+ إضافة صورة"}</Text></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.portfolio}><Pressable onPress={pickPortfolioImage} style={[styles.addPortfolio, { backgroundColor: `${colors.primary}12`, borderColor: colors.primary }]}><IconSymbol name="plus" size={25} color={colors.primary} /><Text style={[styles.addPortfolioText, { color: colors.primary }]}>أضف صورة</Text></Pressable>{portfolio.length > 0 ? portfolio.map((item) => <View key={item.id} style={[styles.portfolioImage, { backgroundColor: colors.surface, borderColor: colors.border }]}><Image source={{ uri: item.url }} style={styles.image} /><Text style={[styles.imageCaption, { color: colors.muted }]}>{item.caption ?? "عمل سابق"}</Text></View>) : ["تركيب", "صيانة", "إنارة"].map((item) => <View key={item} style={[styles.portfolioPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={[styles.placeholderIcon, { backgroundColor: `${colors.primary}12` }]}><IconSymbol name="wrench.and.screwdriver.fill" size={23} color={colors.primary} /></View><Text style={[styles.imageCaption, { color: colors.muted }]}>{item}</Text></View>)}</ScrollView></View>
       <View style={styles.section}><View style={styles.reviewHeader}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>آراء العملاء</Text><Text style={[styles.seeAll, { color: colors.primary }]}>عرض الكل</Text></View>{provider.reviews.map((review) => <View key={review.name} style={[styles.review, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={styles.reviewTop}><Text style={[styles.reviewRating, { color: colors.foreground }]}>★ {review.rating}</Text><Text style={[styles.reviewer, { color: colors.foreground }]}>{review.name}</Text></View><Text style={[styles.reviewText, { color: colors.muted }]}>{review.text}</Text></View>)}</View>
     </ScrollView>
   </ScreenContainer>;
@@ -65,4 +88,12 @@ const styles = StyleSheet.create({
   reviewRating: { fontSize: 12, fontWeight: "800" },
   reviewer: { fontSize: 12, fontWeight: "800" },
   reviewText: { fontSize: 12, textAlign: "right" },
+  portfolio: { gap: 10, paddingVertical: 2 },
+  addPortfolio: { width: 112, height: 118, borderRadius: 15, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 7 },
+  addPortfolioText: { fontSize: 11, fontWeight: "800" },
+  portfolioImage: { width: 132, height: 139, borderRadius: 15, borderWidth: 1, overflow: "hidden" },
+  image: { width: "100%", height: 108 },
+  imageCaption: { fontSize: 10, textAlign: "right", paddingHorizontal: 8, paddingTop: 7 },
+  portfolioPlaceholder: { width: 132, height: 139, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 10 },
+  placeholderIcon: { width: 52, height: 52, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 });

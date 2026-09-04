@@ -76,7 +76,7 @@ export default function HomeScreen() {
             <Text style={[styles.eyebrow, { color: colors.muted }]}>أهلاً بك في</Text>
             <Text style={[styles.brand, { color: colors.foreground }]}>خدمني.</Text>
           </View>
-          <Pressable onPress={() => showComingSoon("ستظهر هنا إشعارات طلباتك وعروض الحرفيين.")} style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
+          <Pressable onPress={() => router.push("/notifications")} style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
             <IconSymbol name="bell.fill" size={22} color={colors.foreground} />
             <View style={styles.notificationDot} />
           </Pressable>

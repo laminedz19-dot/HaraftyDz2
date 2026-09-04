@@ -62,3 +62,26 @@ export const serviceRequests = mysqlTable("serviceRequests", {
 
 export type ServiceRequest = typeof serviceRequests.$inferSelect;
 export type InsertServiceRequest = typeof serviceRequests.$inferInsert;
+
+export const portfolioImages = mysqlTable("portfolioImages", {
+  id: int("id").autoincrement().primaryKey(),
+  providerId: int("providerId").notNull(),
+  url: varchar("url", { length: 500 }).notNull(),
+  caption: varchar("caption", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PortfolioImage = typeof portfolioImages.$inferSelect;
+export type InsertPortfolioImage = typeof portfolioImages.$inferInsert;
+
+export const notifications = mysqlTable("notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 160 }).notNull(),
+  content: text("content").notNull(),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;

@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertProviderProfile, InsertServiceRequest, InsertUser, providerProfiles, serviceRequests, users } from "../drizzle/schema";
+import { InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertServiceRequest, InsertUser, notifications, portfolioImages, providerProfiles, serviceRequests, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -109,6 +109,13 @@ export async function getProviderProfile(id: number) {
   return result[0];
 }
 
+export async function getProviderProfileByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(providerProfiles).where(eq(providerProfiles.userId, userId)).limit(1);
+  return result[0];
+}
+
 export async function createProviderProfile(data: InsertProviderProfile) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -127,4 +134,42 @@ export async function listServiceRequests(customerId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(serviceRequests).where(eq(serviceRequests.customerId, customerId)).orderBy(desc(serviceRequests.createdAt));
+}
+
+export async function updateServiceRequestStatus(id: number, customerId: number, status: "pending" | "confirmed" | "completed" | "cancelled") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(serviceRequests).set({ status }).where(eq(serviceRequests.id, id));
+}
+
+export async function listPortfolioImages(providerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(portfolioImages).where(eq(portfolioImages.providerId, providerId)).orderBy(desc(portfolioImages.createdAt));
+}
+
+export async function createPortfolioImage(data: InsertPortfolioImage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(portfolioImages).values(data);
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function createNotification(data: InsertNotification) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.insert(notifications).values(data);
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function listNotifications(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+}
+
+export async function markNotificationRead(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(notifications).set({ read: true }).where(eq(notifications.id, id));
 }
