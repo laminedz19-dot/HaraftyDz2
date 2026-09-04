@@ -74,7 +74,7 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <View>
             <Text style={[styles.eyebrow, { color: colors.muted }]}>أهلاً بك في</Text>
-            <Text style={[styles.brand, { color: colors.foreground }]}>خدمني<Text style={{ color: colors.primary }}>.</Text></Text>
+            <Text style={[styles.brand, { color: colors.foreground }]}>خدمني.</Text>
           </View>
           <Pressable onPress={() => showComingSoon("ستظهر هنا إشعارات طلباتك وعروض الحرفيين.")} style={({ pressed }) => [styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
             <IconSymbol name="bell.fill" size={22} color={colors.foreground} />
