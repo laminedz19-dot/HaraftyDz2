@@ -131,6 +131,9 @@ export async function getMe(): Promise<{
   email: string | null;
   loginMethod: string | null;
   lastSignedIn: string;
+  subscriptionStatus?: "inactive" | "pending" | "active" | "rejected";
+  subscriptionPlan?: "monthly" | "seasonal" | "yearly" | null;
+  subscriptionExpiresAt?: string | null;
 } | null> {
   try {
     const result = await apiCall<{ user: any }>("/api/auth/me");

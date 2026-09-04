@@ -2,6 +2,8 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { SESSION_TOKEN_KEY, USER_INFO_KEY } from "@/constants/oauth";
 
+const POST_AUTH_REDIRECT_KEY = "post_auth_redirect";
+
 export type User = {
   id: number;
   openId: string;
@@ -9,6 +11,9 @@ export type User = {
   email: string | null;
   loginMethod: string | null;
   lastSignedIn: Date;
+  subscriptionStatus?: "inactive" | "pending" | "active" | "rejected";
+  subscriptionPlan?: "monthly" | "seasonal" | "yearly" | null;
+  subscriptionExpiresAt?: Date | null;
 };
 
 export async function getSessionToken(): Promise<string | null> {
@@ -126,4 +131,16 @@ export async function clearUserInfo(): Promise<void> {
   } catch (error) {
     console.error("[Auth] Failed to clear user info:", error);
   }
+}
+
+export async function setPostAuthRedirect(path: string): Promise<void> {
+  if (Platform.OS === "web") window.localStorage.setItem(POST_AUTH_REDIRECT_KEY, path);
+  else await SecureStore.setItemAsync(POST_AUTH_REDIRECT_KEY, path);
+}
+
+export async function consumePostAuthRedirect(): Promise<string | null> {
+  const path = Platform.OS === "web" ? window.localStorage.getItem(POST_AUTH_REDIRECT_KEY) : await SecureStore.getItemAsync(POST_AUTH_REDIRECT_KEY);
+  if (Platform.OS === "web") window.localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+  else await SecureStore.deleteItemAsync(POST_AUTH_REDIRECT_KEY);
+  return path;
 }

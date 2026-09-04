@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { startOAuthLogin } from "@/constants/oauth";
+import * as Auth from "@/lib/_core/auth";
 
 const planStyles = {
   monthly: { label: "شهري", duration: "30 يوماً" },
@@ -59,7 +60,7 @@ export default function SubscriptionScreen() {
     if (!isAuthenticated || !user) {
       Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول لإرسال الوصل وربط الاشتراك بحسابك.", [
         { text: "لاحقاً", style: "cancel" },
-        { text: "تسجيل الدخول", onPress: () => startOAuthLogin() },
+        { text: "تسجيل الدخول", onPress: async () => { await Auth.setPostAuthRedirect("/subscription"); await startOAuthLogin(); } },
       ]);
       return;
     }

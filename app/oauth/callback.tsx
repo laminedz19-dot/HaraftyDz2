@@ -18,6 +18,10 @@ export default function OAuthCallback() {
   }>();
   const [status, setStatus] = useState<"processing" | "success" | "error">("processing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const finishRedirect = async () => {
+    const redirect = await Auth.consumePostAuthRedirect();
+    setTimeout(() => router.replace((redirect || "/(tabs)") as any), 1000);
+  };
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -51,6 +55,9 @@ export default function OAuthCallback() {
                 email: userData.email,
                 loginMethod: userData.loginMethod,
                 lastSignedIn: new Date(userData.lastSignedIn || Date.now()),
+                subscriptionStatus: userData.subscriptionStatus,
+                subscriptionPlan: userData.subscriptionPlan,
+                subscriptionExpiresAt: userData.subscriptionExpiresAt ? new Date(userData.subscriptionExpiresAt) : null,
               };
               await Auth.setUserInfo(userInfo);
               console.log("[OAuth] User info stored:", userInfo);
@@ -60,10 +67,8 @@ export default function OAuthCallback() {
           }
 
           setStatus("success");
-          console.log("[OAuth] Web authentication successful, redirecting to home...");
-          setTimeout(() => {
-            router.replace("/(tabs)");
-          }, 1000);
+          console.log("[OAuth] Web authentication successful, redirecting...");
+          await finishRedirect();
           return;
         }
 
@@ -157,10 +162,8 @@ export default function OAuthCallback() {
           // User info is already in the OAuth callback response
           // No need to fetch from API
           setStatus("success");
-          console.log("[OAuth] Redirecting to home...");
-          setTimeout(() => {
-            router.replace("/(tabs)");
-          }, 1000);
+          console.log("[OAuth] Redirecting after authentication...");
+          await finishRedirect();
           return;
         }
 
@@ -202,6 +205,9 @@ export default function OAuthCallback() {
               email: result.user.email,
               loginMethod: result.user.loginMethod,
               lastSignedIn: new Date(result.user.lastSignedIn || Date.now()),
+              subscriptionStatus: result.user.subscriptionStatus,
+              subscriptionPlan: result.user.subscriptionPlan,
+              subscriptionExpiresAt: result.user.subscriptionExpiresAt ? new Date(result.user.subscriptionExpiresAt) : null,
             };
             await Auth.setUserInfo(userInfo);
             console.log("[OAuth] User info stored:", userInfo);
@@ -210,13 +216,8 @@ export default function OAuthCallback() {
           }
 
           setStatus("success");
-          console.log("[OAuth] Authentication successful, redirecting to home...");
-
-          // Redirect to home after a short delay
-          setTimeout(() => {
-            console.log("[OAuth] Executing redirect...");
-            router.replace("/(tabs)");
-          }, 1000);
+          console.log("[OAuth] Authentication successful, redirecting...");
+          await finishRedirect();
         } else {
           console.error("[OAuth] No session token in result:", result);
           setStatus("error");
