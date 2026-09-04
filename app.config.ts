@@ -87,6 +87,7 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     "expo-image-picker",
+    ["expo-notifications", { color: "#0F766E" }],
     [
       "expo-audio",
       {

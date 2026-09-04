@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertServiceRequest, InsertUser, notifications, portfolioImages, providerProfiles, serviceRequests, users } from "../drizzle/schema";
+import { InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertUser, notifications, portfolioImages, providerProfiles, providerReviews, pushTokens, serviceRequests, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -153,6 +153,53 @@ export async function createPortfolioImage(data: InsertPortfolioImage) {
   if (!db) throw new Error("Database not available");
   const result = await db.insert(portfolioImages).values(data);
   return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function deletePortfolioImage(id: number, providerUserId: number) {
+  const db = await getDb();
+  if (!db) return;
+  const provider = await getProviderProfileByUserId(providerUserId);
+  if (!provider) return;
+  const image = await db.select({ providerId: portfolioImages.providerId }).from(portfolioImages).where(eq(portfolioImages.id, id)).limit(1);
+  if (!image[0] || image[0].providerId !== provider.id) return;
+  await db.delete(portfolioImages).where(eq(portfolioImages.id, id));
+}
+
+export async function upsertPushToken(data: InsertPushToken) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.insert(pushTokens).values(data).onDuplicateKeyUpdate({ set: { userId: data.userId, platform: data.platform, updatedAt: new Date() } });
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function listPushTokens(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(pushTokens).where(eq(pushTokens.userId, userId));
+}
+
+export async function getServiceRequest(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id)).limit(1);
+  return result[0];
+}
+
+export async function createProviderReview(data: InsertProviderReview) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(providerReviews).values(data);
+  const reviews = await db.select().from(providerReviews).where(eq(providerReviews.providerId, data.providerId));
+  const average = reviews.reduce((sum, review) => sum + review.rating, 0) / Math.max(reviews.length, 1);
+  await db.update(providerProfiles).set({ rating: average.toFixed(1) }).where(eq(providerProfiles.id, data.providerId));
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function hasReviewForRequest(requestId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.select({ id: providerReviews.id }).from(providerReviews).where(eq(providerReviews.requestId, requestId)).limit(1);
+  return result.length > 0;
 }
 
 export async function createNotification(data: InsertNotification) {

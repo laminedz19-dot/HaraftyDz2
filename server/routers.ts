@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { storagePut } from "./storage";
+import { sendPushNotification } from "./_core/notification";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -41,6 +42,11 @@ export const appRouter = router({
       const id = await db.createPortfolioImage({ providerId: provider.id, url: stored.url, caption: input.caption });
       return { id, url: stored.url };
     }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input, ctx }) => db.deletePortfolioImage(input.id, ctx.user.id)),
+  }),
+
+  push: router({
+    register: protectedProcedure.input(z.object({ token: z.string().min(20), platform: z.enum(["ios", "android"]) })).mutation(({ input, ctx }) => db.upsertPushToken({ userId: ctx.user.id, token: input.token, platform: input.platform })),
   }),
 
   requests: router({
@@ -53,9 +59,26 @@ export const appRouter = router({
       return id;
     }),
     updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["confirmed", "completed", "cancelled"]) })).mutation(async ({ input, ctx }) => {
+      const request = await db.getServiceRequest(input.id);
+      if (!request || request.customerId !== ctx.user.id) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود." });
       await db.updateServiceRequestStatus(input.id, ctx.user.id, input.status);
-      await db.createNotification({ userId: ctx.user.id, title: "تحديث حالة الطلب", content: `تم تحديث حالة طلبك إلى: ${input.status}.` });
+      const title = input.status === "confirmed" ? "تم تأكيد طلبك" : input.status === "completed" ? "اكتملت خدمتك" : "تم إلغاء الطلب";
+      const content = input.status === "confirmed" ? "الحرفي أكد موعد الخدمة. افتح التطبيق لمراجعة التفاصيل." : input.status === "completed" ? "يمكنك الآن تقييم الحرفي وتجربتك." : "تم تحديث حالة طلبك إلى ملغى.";
+      await db.createNotification({ userId: ctx.user.id, title, content });
+      const tokens = await db.listPushTokens(ctx.user.id);
+      await sendPushNotification(tokens.map((token) => token.token), { title, content });
       return { success: true } as const;
+    }),
+  }),
+
+  reviews: router({
+    submit: protectedProcedure.input(z.object({ requestId: z.number(), rating: z.number().int().min(1).max(5), comment: z.string().max(1000).optional() })).mutation(async ({ input, ctx }) => {
+      const request = await db.getServiceRequest(input.requestId);
+      if (!request || request.customerId !== ctx.user.id || request.status !== "completed" || !request.providerId) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن تقييم هذا الطلب الآن." });
+      if (await db.hasReviewForRequest(input.requestId)) throw new TRPCError({ code: "CONFLICT", message: "تم تقييم هذا الطلب مسبقاً." });
+      const reviewId = await db.createProviderReview({ requestId: input.requestId, providerId: request.providerId, customerId: ctx.user.id, rating: input.rating, comment: input.comment });
+      await db.createNotification({ userId: ctx.user.id, title: "شكراً لتقييمك", content: "يساعد تقييمك العملاء الآخرين على اختيار الحرفي المناسب." });
+      return { reviewId };
     }),
   }),
 

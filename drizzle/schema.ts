@@ -85,3 +85,27 @@ export const notifications = mysqlTable("notifications", {
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
+
+export const pushTokens = mysqlTable("pushTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  token: varchar("token", { length: 512 }).notNull().unique(),
+  platform: varchar("platform", { length: 20 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const providerReviews = mysqlTable("providerReviews", {
+  id: int("id").autoincrement().primaryKey(),
+  requestId: int("requestId").notNull().unique(),
+  providerId: int("providerId").notNull(),
+  customerId: int("customerId").notNull(),
+  rating: int("rating").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PushToken = typeof pushTokens.$inferSelect;
+export type InsertPushToken = typeof pushTokens.$inferInsert;
+export type ProviderReview = typeof providerReviews.$inferSelect;
+export type InsertProviderReview = typeof providerReviews.$inferInsert;

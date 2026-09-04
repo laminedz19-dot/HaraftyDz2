@@ -6,6 +6,20 @@ export type NotificationPayload = {
   content: string;
 };
 
+export async function sendPushNotification(tokens: string[], payload: NotificationPayload): Promise<void> {
+  const validTokens = tokens.filter((token) => token.startsWith("ExponentPushToken[") || token.startsWith("ExpoPushToken["));
+  if (validTokens.length === 0) return;
+  try {
+    await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validTokens.map((to) => ({ to, title: payload.title, body: payload.content, sound: "default", data: { screen: "/notifications" } }))),
+    });
+  } catch (error) {
+    console.warn("[Notification] Push delivery failed:", error);
+  }
+}
+
 const TITLE_MAX_LENGTH = 1200;
 const CONTENT_MAX_LENGTH = 20000;
 
