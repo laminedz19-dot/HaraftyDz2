@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -54,6 +55,7 @@ const pros: Pro[] = [
 
 export default function HomeScreen() {
   const colors = useColors();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [location, setLocation] = useState("الجزائر العاصمة");
@@ -103,7 +105,7 @@ export default function HomeScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>ماذا تحتاج اليوم؟</Text>
-          <Pressable onPress={() => setSelectedCategory("all")}><Text style={[styles.seeAll, { color: colors.primary }]}>عرض الكل</Text></Pressable>
+          <Pressable onPress={() => router.push("/categories")}><Text style={[styles.seeAll, { color: colors.primary }]}>عرض الكل</Text></Pressable>
         </View>
         <FlatList
           horizontal
