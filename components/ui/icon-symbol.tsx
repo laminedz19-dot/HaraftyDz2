@@ -35,7 +35,23 @@ const MAPPING = {
   "hammer.fill": "handyman",
   "leaf.fill": "eco",
   "truck.box.fill": "local-shipping",
-} as IconMapping;
+  "bug.fill": "pest-control",
+  "window.horizontal": "window",
+  "sofa.fill": "weekend",
+  "washer.fill": "local-laundry-service",
+  "tv.fill": "tv",
+  "wifi": "wifi",
+  "video.fill": "videocam",
+  "sun.max.fill": "wb-sunny",
+  "square.stack.3d.up.fill": "layers",
+  "text.alignleft": "format-align-left",
+  "cabinet.fill": "kitchen",
+  "lock.fill": "lock",
+  "car.fill": "local-car-wash",
+  "scissors": "content-cut",
+  "person.2.fill": "people",
+  "camera.fill": "camera-alt",
+} as unknown as IconMapping;
 
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.

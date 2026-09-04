@@ -14,7 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 
-type Category = { id: string; label: string; icon: "wrench.and.screwdriver.fill" | "bolt.fill" | "drop.fill" | "paintbrush.fill" | "snowflake" | "sparkles" | "hammer.fill" | "leaf.fill" | "truck.box.fill" | "house.fill" };
+type Category = { id: string; label: string; icon: string };
 type Pro = { id: string; name: string; trade: string; rating: string; jobs: string; initials: string; color: string };
 
 const categories: Category[] = [
@@ -28,6 +28,22 @@ const categories: Category[] = [
   { id: "garden", label: "حدائق", icon: "leaf.fill" },
   { id: "moving", label: "نقل أثاث", icon: "truck.box.fill" },
   { id: "renovation", label: "ترميم", icon: "house.fill" },
+  { id: "pest", label: "مكافحة حشرات", icon: "bug.fill" },
+  { id: "glass", label: "زجاج وألمنيوم", icon: "window.horizontal" },
+  { id: "furniture", label: "أثاث ومفروشات", icon: "sofa.fill" },
+  { id: "appliances", label: "أجهزة منزلية", icon: "washer.fill" },
+  { id: "tv", label: "تلفاز ورسيفر", icon: "tv.fill" },
+  { id: "internet", label: "إنترنت وشبكات", icon: "wifi" },
+  { id: "security", label: "أمن وكاميرات", icon: "video.fill" },
+  { id: "solar", label: "طاقة شمسية", icon: "sun.max.fill" },
+  { id: "insulation", label: "عزل الأسطح", icon: "square.stack.3d.up.fill" },
+  { id: "gypsum", label: "جبس وديكور", icon: "text.alignleft" },
+  { id: "kitchens", label: "مطابخ وخزائن", icon: "cabinet.fill" },
+  { id: "locks", label: "أقفال ومفاتيح", icon: "lock.fill" },
+  { id: "car", label: "غسيل سيارات", icon: "car.fill" },
+  { id: "sewing", label: "خياطة وستائر", icon: "scissors" },
+  { id: "events", label: "تنظيم مناسبات", icon: "person.2.fill" },
+  { id: "photography", label: "تصوير", icon: "camera.fill" },
 ];
 
 const pros: Pro[] = [
@@ -101,7 +117,7 @@ export default function HomeScreen() {
             return (
               <Pressable onPress={() => setSelectedCategory(item.id)} style={({ pressed }) => [styles.categoryItem, pressed && styles.pressed]}>
                 <View style={[styles.categoryIcon, { backgroundColor: active ? colors.primary : colors.surface, borderColor: active ? colors.primary : colors.border }]}>
-                  <IconSymbol name={item.icon} size={24} color={active ? "#FFFFFF" : colors.primary} />
+                  <IconSymbol name={item.icon as any} size={24} color={active ? "#FFFFFF" : colors.primary} />
                 </View>
                 <Text style={[styles.categoryLabel, { color: active ? colors.primary : colors.muted }]}>{item.label}</Text>
               </Pressable>
