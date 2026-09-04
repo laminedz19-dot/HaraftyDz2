@@ -2,6 +2,9 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useAuth } from "@/hooks/use-auth";
+import { startOAuthLogin } from "@/constants/oauth";
+import { trpc } from "@/lib/trpc";
 
 const items = [
   { icon: "person.crop.circle.fill" as const, label: "بياناتي الشخصية", detail: "الاسم، الهاتف، العنوان" },
@@ -11,14 +14,17 @@ const items = [
 
 export default function ProfileScreen() {
   const colors = useColors();
+  const { user, isAuthenticated, logout } = useAuth();
+  const accountMutation = trpc.accounts.setType.useMutation();
+  const displayName = user?.name || "زائر خدمني";
   return <ScreenContainer className="px-5" edges={["top", "left", "right"]}>
     <Text style={[styles.title, { color: colors.foreground }]}>حسابي</Text>
     <View style={[styles.profileCard, { backgroundColor: colors.primary }]}>
       <View style={styles.profileAvatar}><Text style={[styles.profileInitial, { color: colors.primary }]}>ز</Text></View>
-      <View style={styles.profileCopy}><Text style={styles.profileName}>زائر خدمني</Text><Text style={styles.profileSub}>أكمل ملفك للحصول على تجربة أفضل</Text></View>
-      <Pressable onPress={() => Alert.alert("تسجيل الدخول", "سيتم فتح صفحة تسجيل الدخول قريباً.")} style={styles.loginButton}><Text style={[styles.loginText, { color: colors.primary }]}>دخول</Text></Pressable>
+      <View style={styles.profileCopy}><Text style={styles.profileName}>{displayName}</Text><Text style={styles.profileSub}>{isAuthenticated ? "حسابك متصل ويمكنك متابعة طلباتك" : "أكمل ملفك للحصول على تجربة أفضل"}</Text></View>
+      <Pressable onPress={() => isAuthenticated ? logout() : startOAuthLogin()} style={styles.loginButton}><Text style={[styles.loginText, { color: colors.primary }]}>{isAuthenticated ? "خروج" : "دخول"}</Text></Pressable>
     </View>
-    <Pressable onPress={() => Alert.alert("كن حرفياً مع خدمني", "أنشئ ملفك، اعرض خبرتك، واستقبل طلبات جديدة من منطقتك.")} style={[styles.artisanCard, { backgroundColor: "#E7F5F2" }]}><View style={[styles.artisanIcon, { backgroundColor: colors.primary }]}><IconSymbol name="wrench.and.screwdriver.fill" size={21} color="#FFFFFF" /></View><View style={styles.artisanCopy}><Text style={[styles.artisanTitle, { color: colors.foreground }]}>هل أنت حرفي؟</Text><Text style={[styles.artisanBody, { color: colors.muted }]}>قدّم خدماتك لعملاء جدد بالقرب منك</Text></View><IconSymbol name="chevron.right" size={18} color={colors.primary} /></Pressable>
+    <Pressable onPress={async () => { if (!isAuthenticated) { await startOAuthLogin(); return; } await accountMutation.mutateAsync({ accountType: "provider" }); Alert.alert("تم تفعيل حساب الحرفي", "يمكنك الآن إكمال ملفك وإضافة خدماتك."); }} style={[styles.artisanCard, { backgroundColor: "#E7F5F2" }]}><View style={[styles.artisanIcon, { backgroundColor: colors.primary }]}><IconSymbol name="wrench.and.screwdriver.fill" size={21} color="#FFFFFF" /></View><View style={styles.artisanCopy}><Text style={[styles.artisanTitle, { color: colors.foreground }]}>هل أنت حرفي؟</Text><Text style={[styles.artisanBody, { color: colors.muted }]}>{isAuthenticated ? "فعّل حساب الحرفي واستقبل طلبات جديدة" : "سجّل الدخول وقدّم خدماتك لعملاء جدد"}</Text></View><IconSymbol name="chevron.right" size={18} color={colors.primary} /></Pressable>
     <Text style={[styles.section, { color: colors.foreground }]}>الإعدادات</Text>
     <View style={[styles.settings, { backgroundColor: colors.surface, borderColor: colors.border }]}>{items.map((item) => <Pressable key={item.label} onPress={() => Alert.alert(item.label, "هذه الخاصية متاحة من ملفك الشخصي.")} style={({ pressed }) => [styles.settingRow, { borderBottomColor: colors.border }, pressed && { opacity: 0.7 }]}><View style={[styles.settingIcon, { backgroundColor: `${colors.primary}14` }]}><IconSymbol name={item.icon} size={20} color={colors.primary} /></View><View style={styles.settingCopy}><Text style={[styles.settingLabel, { color: colors.foreground }]}>{item.label}</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>{item.detail}</Text></View><IconSymbol name="chevron.right" size={16} color={colors.muted} /></Pressable>)}</View>
     <Text style={[styles.footer, { color: colors.muted }]}>خدمني · ابحث عن الأفضل بالقرب منك</Text>

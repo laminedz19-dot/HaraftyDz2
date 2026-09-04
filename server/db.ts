@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertProviderProfile, InsertServiceRequest, InsertUser, providerProfiles, serviceRequests, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,42 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function updateUserAccountType(userId: number, accountType: "customer" | "provider") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ accountType }).where(eq(users.id, userId));
+}
+
+export async function listProviderProfiles(category?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  if (category) return db.select().from(providerProfiles).where(eq(providerProfiles.category, category));
+  return db.select().from(providerProfiles).orderBy(desc(providerProfiles.rating));
+}
+
+export async function getProviderProfile(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(providerProfiles).where(eq(providerProfiles.id, id)).limit(1);
+  return result[0];
+}
+
+export async function createProviderProfile(data: InsertProviderProfile) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(providerProfiles).values(data);
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function createServiceRequest(data: InsertServiceRequest) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(serviceRequests).values(data);
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function listServiceRequests(customerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(serviceRequests).where(eq(serviceRequests.customerId, customerId)).orderBy(desc(serviceRequests.createdAt));
+}
