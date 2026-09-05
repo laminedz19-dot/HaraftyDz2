@@ -1,5 +1,6 @@
-import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ExpoLinking from "expo-linking";
 import * as ImagePicker from "expo-image-picker";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -55,9 +56,18 @@ export default function ProviderDetailScreen() {
     if (await Linking.canOpenURL(url)) await Linking.openURL(url);
     else Alert.alert("تعذر فتح واتساب", "تأكد من تثبيت تطبيق واتساب على جهازك.");
   };
+  const shareProfile = async () => {
+    const profileUrl = ExpoLinking.createURL(`/provider/${id ?? "1"}`);
+    const result = await Share.share({
+      title: `بروفايل ${provider.name}`,
+      message: `اكتشف بروفايل ${provider.name}، ${provider.trade}، عبر تطبيق خدمني.\n${profileUrl}`,
+      url: profileUrl,
+    });
+    if (result.action === Share.sharedAction) return;
+  };
   return <ScreenContainer className="px-5" edges={["top", "left", "right"]}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-      <View style={styles.header}><Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface, borderColor: colors.border }]}><IconSymbol name="arrow.left" size={20} color={colors.foreground} /></Pressable><Text style={[styles.headerTitle, { color: colors.foreground }]}>ملف الحرفي</Text><Pressable onPress={() => Alert.alert("مشاركة", "يمكنك مشاركة ملف الحرفي مع عائلتك وأصدقائك.")}><Text style={[styles.share, { color: colors.primary }]}>مشاركة</Text></Pressable></View>
+      <View style={styles.header}><Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface, borderColor: colors.border }]}><IconSymbol name="arrow.left" size={20} color={colors.foreground} /></Pressable><Text style={[styles.headerTitle, { color: colors.foreground }]}>ملف الحرفي</Text><Pressable onPress={shareProfile} style={[styles.shareButton, { backgroundColor: `${colors.primary}12` }]}><IconSymbol name="square.and.arrow.up" size={16} color={colors.primary} /><Text style={[styles.share, { color: colors.primary }]}>مشاركة</Text></Pressable></View>
       <View style={[styles.profileHero, { backgroundColor: colors.primary }]}><View style={[styles.bigAvatar, { backgroundColor: provider.color }]}><Text style={styles.bigInitials}>{provider.initials}</Text></View><Text style={styles.name}>{provider.name}</Text><Text style={styles.trade}>{provider.trade}</Text><View style={styles.verifiedLine}><View style={styles.whiteCheck}><Text style={styles.checkText}>✓</Text></View><Text style={styles.verifiedLabel}>حساب موثّق</Text></View></View>
       <View style={styles.stats}><View style={styles.stat}><Text style={[styles.statValue, { color: colors.foreground }]}>{provider.rating}</Text><Text style={[styles.statLabel, { color: colors.muted }]}>التقييم</Text></View><View style={[styles.divider, { backgroundColor: colors.border }]} /><View style={styles.stat}><Text style={[styles.statValue, { color: colors.foreground }]}>{provider.jobs}</Text><Text style={[styles.statLabel, { color: colors.muted }]}>خدمة مكتملة</Text></View><View style={[styles.divider, { backgroundColor: colors.border }]} /><View style={styles.stat}><Text style={[styles.statValue, { color: colors.foreground }]}>{provider.distance}</Text><Text style={[styles.statLabel, { color: colors.muted }]}>عن موقعك</Text></View></View>
       <View style={styles.actionRow}><Pressable onPress={() => router.push({ pathname: "/request", params: { providerId: id ?? "1", category: provider.category } })} style={({ pressed }) => [styles.book, { backgroundColor: colors.primary, flex: 1 }, pressed && { opacity: 0.82 }]}><Text style={styles.bookText}>اطلب هذه الخدمة</Text><IconSymbol name="chevron.right" size={19} color="#FFFFFF" /></Pressable><Pressable onPress={openWhatsApp} style={({ pressed }) => [styles.whatsappButton, pressed && { opacity: 0.75 }]}><Text style={styles.whatsappText}>واتساب</Text><Text style={styles.whatsappIcon}>◉</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/chat/[conversationId]", params: { conversationId: `provider-${id ?? "1"}`, providerId: id ?? "1", name: provider.name } })} style={({ pressed }) => [styles.chatButton, { backgroundColor: colors.surface, borderColor: colors.primary }, pressed && { opacity: 0.75 }]}><IconSymbol name="message.fill" size={19} color={colors.primary} /></Pressable></View>
@@ -75,6 +85,7 @@ const styles = StyleSheet.create({
   back: { width: 42, height: 42, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontWeight: "800" },
   share: { fontSize: 12, fontWeight: "800" },
+  shareButton: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: "row-reverse", alignItems: "center", gap: 5 },
   profileHero: { borderRadius: 23, alignItems: "center", paddingVertical: 23 },
   bigAvatar: { width: 76, height: 76, borderRadius: 25, alignItems: "center", justifyContent: "center", marginBottom: 11 },
   bigInitials: { color: "#FFFFFF", fontSize: 24, fontWeight: "900" },
