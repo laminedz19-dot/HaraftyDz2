@@ -63,7 +63,7 @@ export default function SubscriptionScreen() {
 
   const submit = () => {
     if (!isAuthenticated || !user) {
-      Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول لإرسال الوصل وربط الاشتراك بحسابك.", [
+      Alert.alert("دخول الحرفي مطلوب", "هذه الصفحة مخصصة للحرفيين فقط. سجّل الدخول لإرسال الوصل وربط الاشتراك بحسابك.", [
         { text: "لاحقاً", style: "cancel" },
         { text: "تسجيل الدخول", onPress: async () => { await Auth.setPostAuthRedirect("/subscription"); await startOAuthLogin(); } },
       ]);

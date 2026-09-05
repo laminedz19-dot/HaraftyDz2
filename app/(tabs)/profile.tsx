@@ -26,8 +26,6 @@ const styles = StyleSheet.create({
   profileCopy: { flex: 1 },
   profileName: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", textAlign: "right" },
   profileSub: { color: "#D8F7F1", fontSize: 11, textAlign: "right", marginTop: 4 },
-  loginButton: { backgroundColor: "#FFFFFF", borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12 },
-  loginText: { fontSize: 12, fontWeight: "800" },
   artisanCard: { borderRadius: 19, padding: 15, flexDirection: "row-reverse", alignItems: "center", gap: 11, marginTop: 18 },
   artisanIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   artisanCopy: { flex: 1 },

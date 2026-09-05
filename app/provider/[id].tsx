@@ -28,7 +28,7 @@ export default function ProviderDetailScreen() {
   const uploadMutation = trpc.portfolio.upload.useMutation({ onSuccess: () => portfolioQuery.refetch() });
   const pickPortfolioImage = async () => {
     if (!isAuthenticated) {
-      Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول حتى تتمكن من إضافة أعمالك السابقة.", [{ text: "لاحقاً", style: "cancel" }, { text: "تسجيل الدخول", onPress: () => startOAuthLogin() }]);
+      Alert.alert("خاص بالحرفي", "إضافة الأعمال السابقة متاحة للحرفيين بعد تسجيل الدخول إلى حسابهم.", [{ text: "حسناً", style: "cancel" }]);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.82, base64: true });

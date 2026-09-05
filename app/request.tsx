@@ -7,7 +7,6 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
-import { startOAuthLogin } from "@/constants/oauth";
 import { ServiceMap } from "@/components/service-map";
 
 const categories = [{ id: "plumbing", label: "سباكة" }, { id: "electric", label: "كهرباء" }, { id: "ac", label: "تكييف" }, { id: "cleaning", label: "تنظيف" }, { id: "carpentry", label: "نجارة" }, { id: "painting", label: "دهان" }];
@@ -40,7 +39,7 @@ export default function RequestScreen() {
 
   const submit = async () => {
     if (!isAuthenticated || !user) {
-      Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول أولاً حتى نتمكن من حفظ طلبك ومتابعته.", [{ text: "لاحقاً", style: "cancel" }, { text: "تسجيل الدخول", onPress: () => startOAuthLogin() }]);
+      Alert.alert("التواصل مع الحرفي", "يمكنك التواصل مباشرة مع الحرفي عبر زر واتساب الموجود في بروفايله، دون إنشاء حساب.");
       return;
     }
     if (!address.trim()) {
