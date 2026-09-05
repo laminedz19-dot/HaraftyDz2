@@ -1,4 +1,4 @@
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { ScreenContainer } from "@/components/screen-container";
@@ -23,6 +23,7 @@ export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const provider = data[id ?? "1"] ?? data["1"];
   const { isAuthenticated } = useAuth();
+  const providerQuery = trpc.providers.get.useQuery({ id: Number(id ?? 1) });
   const portfolioQuery = trpc.portfolio.list.useQuery({ providerId: Number(id ?? 1) });
   const uploadMutation = trpc.portfolio.upload.useMutation({ onSuccess: () => portfolioQuery.refetch() });
   const pickPortfolioImage = async () => {
@@ -42,12 +43,24 @@ export default function ProviderDetailScreen() {
   const portfolio = portfolioQuery.data ?? [];
   const deleteMutation = trpc.portfolio.delete.useMutation({ onSuccess: () => portfolioQuery.refetch() });
   const confirmDelete = (imageId: number) => Alert.alert("حذف الصورة", "هل تريد حذف هذه الصورة من معرض أعمالك؟", [{ text: "إلغاء", style: "cancel" }, { text: "حذف", style: "destructive", onPress: () => deleteMutation.mutate({ id: imageId }) }]);
+  const openWhatsApp = async () => {
+    const rawPhone = providerQuery.data?.phone?.trim();
+    if (!rawPhone) {
+      Alert.alert("رقم واتساب غير متوفر", "لم يضف الحرفي رقم هاتف للتواصل عبر واتساب بعد.");
+      return;
+    }
+    const digits = rawPhone.replace(/[^\d+]/g, "");
+    const normalized = digits.startsWith("+213") ? digits.slice(1) : digits.startsWith("00213") ? digits.slice(2) : digits.startsWith("0") ? `213${digits.slice(1)}` : digits;
+    const url = `https://wa.me/${normalized}?text=${encodeURIComponent(`السلام عليكم، أريد الاستفسار عن خدماتك عبر خدمني.`)}`;
+    if (await Linking.canOpenURL(url)) await Linking.openURL(url);
+    else Alert.alert("تعذر فتح واتساب", "تأكد من تثبيت تطبيق واتساب على جهازك.");
+  };
   return <ScreenContainer className="px-5" edges={["top", "left", "right"]}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
       <View style={styles.header}><Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface, borderColor: colors.border }]}><IconSymbol name="arrow.left" size={20} color={colors.foreground} /></Pressable><Text style={[styles.headerTitle, { color: colors.foreground }]}>ملف الحرفي</Text><Pressable onPress={() => Alert.alert("مشاركة", "يمكنك مشاركة ملف الحرفي مع عائلتك وأصدقائك.")}><Text style={[styles.share, { color: colors.primary }]}>مشاركة</Text></Pressable></View>
       <View style={[styles.profileHero, { backgroundColor: colors.primary }]}><View style={[styles.bigAvatar, { backgroundColor: provider.color }]}><Text style={styles.bigInitials}>{provider.initials}</Text></View><Text style={styles.name}>{provider.name}</Text><Text style={styles.trade}>{provider.trade}</Text><View style={styles.verifiedLine}><View style={styles.whiteCheck}><Text style={styles.checkText}>✓</Text></View><Text style={styles.verifiedLabel}>حساب موثّق</Text></View></View>
       <View style={styles.stats}><View style={styles.stat}><Text style={[styles.statValue, { color: colors.foreground }]}>{provider.rating}</Text><Text style={[styles.statLabel, { color: colors.muted }]}>التقييم</Text></View><View style={[styles.divider, { backgroundColor: colors.border }]} /><View style={styles.stat}><Text style={[styles.statValue, { color: colors.foreground }]}>{provider.jobs}</Text><Text style={[styles.statLabel, { color: colors.muted }]}>خدمة مكتملة</Text></View><View style={[styles.divider, { backgroundColor: colors.border }]} /><View style={styles.stat}><Text style={[styles.statValue, { color: colors.foreground }]}>{provider.distance}</Text><Text style={[styles.statLabel, { color: colors.muted }]}>عن موقعك</Text></View></View>
-      <View style={styles.actionRow}><Pressable onPress={() => router.push({ pathname: "/request", params: { providerId: id ?? "1", category: provider.category } })} style={({ pressed }) => [styles.book, { backgroundColor: colors.primary, flex: 1 }, pressed && { opacity: 0.82 }]}><Text style={styles.bookText}>اطلب هذه الخدمة</Text><IconSymbol name="chevron.right" size={19} color="#FFFFFF" /></Pressable><Pressable onPress={() => router.push({ pathname: "/chat/[conversationId]", params: { conversationId: `provider-${id ?? "1"}`, providerId: id ?? "1", name: provider.name } })} style={({ pressed }) => [styles.chatButton, { backgroundColor: colors.surface, borderColor: colors.primary }, pressed && { opacity: 0.75 }]}><IconSymbol name="message.fill" size={19} color={colors.primary} /></Pressable></View>
+      <View style={styles.actionRow}><Pressable onPress={() => router.push({ pathname: "/request", params: { providerId: id ?? "1", category: provider.category } })} style={({ pressed }) => [styles.book, { backgroundColor: colors.primary, flex: 1 }, pressed && { opacity: 0.82 }]}><Text style={styles.bookText}>اطلب هذه الخدمة</Text><IconSymbol name="chevron.right" size={19} color="#FFFFFF" /></Pressable><Pressable onPress={openWhatsApp} style={({ pressed }) => [styles.whatsappButton, pressed && { opacity: 0.75 }]}><Text style={styles.whatsappText}>واتساب</Text><Text style={styles.whatsappIcon}>◉</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/chat/[conversationId]", params: { conversationId: `provider-${id ?? "1"}`, providerId: id ?? "1", name: provider.name } })} style={({ pressed }) => [styles.chatButton, { backgroundColor: colors.surface, borderColor: colors.primary }, pressed && { opacity: 0.75 }]}><IconSymbol name="message.fill" size={19} color={colors.primary} /></Pressable></View>
       <View style={styles.section}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>نبذة عن الحرفي</Text><Text style={[styles.bio, { color: colors.muted }]}>{provider.bio}</Text><View style={styles.location}><IconSymbol name="location.fill" size={17} color={colors.primary} /><Text style={[styles.locationText, { color: colors.muted }]}>{provider.city} · {provider.price}</Text></View></View>
       <View style={styles.section}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>الخدمات التي يقدمها</Text><View style={styles.skills}>{provider.skills.map((skill) => <View key={skill} style={[styles.skill, { backgroundColor: `${colors.primary}14` }]}><Text style={[styles.skillText, { color: colors.primary }]}>{skill}</Text></View>)}</View></View>
       <View style={styles.section}><View style={styles.reviewHeader}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>أعمال سابقة</Text><Pressable onPress={pickPortfolioImage}><Text style={[styles.seeAll, { color: colors.primary }]}>{uploadMutation.isPending ? "جارٍ الرفع..." : "+ إضافة صورة"}</Text></Pressable></View><Text style={[styles.portfolioHint, { color: colors.muted }]}>اضغط مطولاً على صورة لحذفها من معرضك</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.portfolio}><Pressable onPress={pickPortfolioImage} style={[styles.addPortfolio, { backgroundColor: `${colors.primary}12`, borderColor: colors.primary }]}><IconSymbol name="plus" size={25} color={colors.primary} /><Text style={[styles.addPortfolioText, { color: colors.primary }]}>أضف صورة</Text></Pressable>{portfolio.length > 0 ? portfolio.map((item) => <Pressable key={item.id} onLongPress={() => confirmDelete(item.id)} style={[styles.portfolioImage, { backgroundColor: colors.surface, borderColor: colors.border }]}><Image source={{ uri: item.url }} style={styles.image} /><Text style={[styles.imageCaption, { color: colors.muted }]}>{item.caption ?? "عمل سابق"}</Text></Pressable>) : ["تركيب", "صيانة", "إنارة"].map((item) => <View key={item} style={[styles.portfolioPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={[styles.placeholderIcon, { backgroundColor: `${colors.primary}12` }]}><IconSymbol name="wrench.and.screwdriver.fill" size={23} color={colors.primary} /></View><Text style={[styles.imageCaption, { color: colors.muted }]}>{item}</Text></View>)}</ScrollView></View>
@@ -79,6 +92,9 @@ const styles = StyleSheet.create({
   book: { height: 52, borderRadius: 15, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 9 },
   actionRow: { flexDirection: "row-reverse", gap: 9 },
   chatButton: { width: 52, height: 52, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  whatsappButton: { height: 52, borderRadius: 15, paddingHorizontal: 13, backgroundColor: "#25D366", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6 },
+  whatsappText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
+  whatsappIcon: { color: "#FFFFFF", fontSize: 17, fontWeight: "900" },
   bookText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
   section: { gap: 11 },
   sectionTitle: { fontSize: 18, fontWeight: "800", textAlign: "right" },
