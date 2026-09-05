@@ -9,7 +9,7 @@ import { storageGetSignedUrl } from "./storage";
 import { screenSubscriptionReceipt } from "./subscription-review";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -23,6 +23,9 @@ function verifyPassword(password: string, stored: string) {
   const expectedBuffer = Buffer.from(expected, "hex");
   return actual.length === expectedBuffer.length && timingSafeEqual(actual, expectedBuffer);
 }
+
+const reviewLinkBase = () => (process.env.PUBLIC_APP_URL || "").replace(/\/$/, "");
+const reviewTokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -182,6 +185,11 @@ export const appRouter = router({
       const signedUrl = await storageGetSignedUrl(stored.key);
       const screening = await screenSubscriptionReceipt({ signedUrl, mimeType: input.mimeType, amount: planData.amount, planLabel: planData.label, destinationAccount: "007999990008761821", paymentKey: "94" });
       const id = await db.createSubscriptionPayment({ userId: ctx.user.id, plan: input.plan, amount: planData.amount, destinationAccount: "007999990008761821", paymentKey: "94", receiptUrl: stored.url, providerDraft: input.providerDraft, aiVerdict: screening.verdict, aiConfidence: screening.confidence, aiNotes: screening.notes, status: "pending" });
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const approveToken = randomBytes(32).toString("hex");
+      const rejectToken = randomBytes(32).toString("hex");
+      await db.createSubscriptionReviewToken({ paymentId: id, tokenHash: reviewTokenHash(approveToken), action: "approve", expiresAt });
+      await db.createSubscriptionReviewToken({ paymentId: id, tokenHash: reviewTokenHash(rejectToken), action: "reject", expiresAt });
       await db.updateUserSubscription(ctx.user.id, "pending", input.plan, null);
       if (input.providerDraft) {
         try {
@@ -195,7 +203,8 @@ export const appRouter = router({
         }
       }
       await db.createNotification({ userId: ctx.user.id, title: "وصل الاشتراك قيد المراجعة", content: "تم استلام الوصل. لن يتم تفعيل الاشتراك حتى تتم الموافقة اليدوية." });
-      return { id, verdict: screening.verdict, confidence: screening.confidence, notes: screening.notes };
+      const base = reviewLinkBase();
+      return { id, verdict: screening.verdict, confidence: screening.confidence, notes: screening.notes, reviewLinks: base ? { approve: `${base}/review/subscription?token=${approveToken}`, reject: `${base}/review/subscription?token=${rejectToken}` } : null };
     }),
     adminList: protectedProcedure.query(async ({ ctx }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "هذه الصفحة مخصصة للإدارة." });

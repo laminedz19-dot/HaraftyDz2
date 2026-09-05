@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertMessage, InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReport, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertSubscriptionPayment, InsertUser, messages, notifications, portfolioImages, providerProfiles, providerReports, providerReviews, pushTokens, serviceRequests, subscriptionPayments, users } from "../drizzle/schema";
+import { InsertMessage, InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReport, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertSubscriptionPayment, InsertSubscriptionReviewToken, InsertUser, messages, notifications, portfolioImages, providerProfiles, providerReports, providerReviews, pushTokens, serviceRequests, subscriptionPayments, subscriptionReviewTokens, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -358,4 +358,23 @@ export async function reviewSubscriptionPayment(id: number, status: "approved" |
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(subscriptionPayments).set({ status, adminNote, reviewedAt: new Date() }).where(eq(subscriptionPayments.id, id));
+}
+
+export async function createSubscriptionReviewToken(data: InsertSubscriptionReviewToken) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(subscriptionReviewTokens).values(data);
+}
+
+export async function getSubscriptionReviewToken(tokenHash: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(subscriptionReviewTokens).where(eq(subscriptionReviewTokens.tokenHash, tokenHash)).limit(1);
+  return result[0];
+}
+
+export async function useSubscriptionReviewToken(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(subscriptionReviewTokens).set({ usedAt: new Date() }).where(eq(subscriptionReviewTokens.id, id));
 }

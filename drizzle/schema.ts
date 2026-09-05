@@ -162,3 +162,16 @@ export const subscriptionPayments = mysqlTable("subscriptionPayments", {
 
 export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
 export type InsertSubscriptionPayment = typeof subscriptionPayments.$inferInsert;
+
+export const subscriptionReviewTokens = mysqlTable("subscriptionReviewTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  paymentId: int("paymentId").notNull(),
+  tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+  action: mysqlEnum("action", ["approve", "reject"]).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SubscriptionReviewToken = typeof subscriptionReviewTokens.$inferSelect;
+export type InsertSubscriptionReviewToken = typeof subscriptionReviewTokens.$inferInsert;
