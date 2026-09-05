@@ -14,9 +14,10 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { trpc } from "@/lib/trpc";
 
 type Category = { id: string; label: string; icon: string };
-type Pro = { id: string; name: string; trade: string; rating: string; jobs: string; initials: string; color: string };
+type Pro = { id: string; name: string; trade: string; rating: string; jobs: string; initials: string; color: string; verified: boolean };
 
 const categories: Category[] = [
   { id: "plumbing", label: "سباكة", icon: "drop.fill" },
@@ -47,18 +48,23 @@ const categories: Category[] = [
   { id: "photography", label: "تصوير", icon: "camera.fill" },
 ];
 
-const pros: Pro[] = [
-  { id: "1", name: "ياسين بوعلام", trade: "كهربائي معتمد", rating: "4.9", jobs: "126 خدمة", initials: "يب", color: "#0F766E" },
-  { id: "2", name: "سميرة قادري", trade: "سباكة وصيانة", rating: "4.8", jobs: "98 خدمة", initials: "سق", color: "#D97706" },
-  { id: "3", name: "مراد حسان", trade: "تركيب مكيفات", rating: "4.7", jobs: "74 خدمة", initials: "مح", color: "#1D4ED8" },
-];
-
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [location, setLocation] = useState("الجزائر العاصمة");
+  const providersQuery = trpc.providers.list.useQuery(undefined);
+  const pros: Pro[] = (providersQuery.data ?? []).map((provider, index) => ({
+    id: String(provider.id),
+    name: provider.name,
+    trade: provider.trade,
+    rating: provider.rating ?? "0",
+    jobs: `${provider.completedJobs} خدمة`,
+    initials: provider.name.split(" ").slice(0, 2).map((part) => part[0]).join(""),
+    color: ["#0F766E", "#D97706", "#1D4ED8", "#7C3AED"][index % 4],
+    verified: provider.verified,
+  }));
 
   const filteredPros = useMemo(() => {
     if (!query.trim()) return pros;
@@ -158,7 +164,7 @@ export default function HomeScreen() {
                   <Text style={[styles.proName, { color: colors.foreground }]}>{item.name}</Text>
                   <Text style={[styles.proTrade, { color: colors.muted }]}>{item.trade}</Text>
                 </View>
-                <View style={styles.verified}><Text style={styles.verifiedText}>✓</Text></View>
+                {item.verified && <View style={styles.verified}><Text style={styles.verifiedText}>✓</Text></View>}
               </View>
               <View style={styles.proMeta}>
                 <Text style={[styles.jobs, { color: colors.muted }]}>{item.jobs}</Text>
