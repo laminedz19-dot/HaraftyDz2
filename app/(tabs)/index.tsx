@@ -99,7 +99,7 @@ export default function HomeScreen() {
           <View style={styles.heroDecorTwo} />
           <Text style={styles.heroKicker}>خدمة موثوقة، في وقتك</Text>
           <Text style={styles.heroTitle}>منزلك يستاهل{`\n`}الأفضل.</Text>
-          <Text style={styles.heroBody}>اكتشف حرفيين موثوقين بالقرب منك وأنجز أشغالك براحة بال.</Text>
+          <Text style={styles.heroBody}>اعثر على حرفيين موثوقين بالقرب منك وأنجز أشغالك براحة بال.</Text>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -126,9 +126,6 @@ export default function HomeScreen() {
           }}
         />
 
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>حرفيون بالقرب منك</Text>
-        </View>
         <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <IconSymbol name="magnifyingglass" size={21} color={colors.muted} />
           <TextInput
