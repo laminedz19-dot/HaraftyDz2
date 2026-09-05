@@ -127,11 +127,11 @@ export const appRouter = router({
   }),
 
   reviews: router({
-    submit: protectedProcedure.input(z.object({ requestId: z.number(), rating: z.number().int().min(1).max(5), comment: z.string().max(1000).optional() })).mutation(async ({ input, ctx }) => {
+    submit: protectedProcedure.input(z.object({ requestId: z.number(), rating: z.number().int().min(1).max(5) })).mutation(async ({ input, ctx }) => {
       const request = await db.getServiceRequest(input.requestId);
       if (!request || request.customerId !== ctx.user.id || request.status !== "completed" || !request.providerId) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن تقييم هذا الطلب الآن." });
       if (await db.hasReviewForRequest(input.requestId)) throw new TRPCError({ code: "CONFLICT", message: "تم تقييم هذا الطلب مسبقاً." });
-      const reviewId = await db.createProviderReview({ requestId: input.requestId, providerId: request.providerId, customerId: ctx.user.id, rating: input.rating, comment: input.comment });
+      const reviewId = await db.createProviderReview({ requestId: input.requestId, providerId: request.providerId, customerId: ctx.user.id, rating: input.rating });
       await db.createNotification({ userId: ctx.user.id, title: "شكراً لتقييمك", content: "يساعد تقييمك العملاء الآخرين على اختيار الحرفي المناسب." });
       return { reviewId };
     }),

@@ -131,7 +131,6 @@ export const providerReviews = mysqlTable("providerReviews", {
   providerId: int("providerId").notNull(),
   customerId: int("customerId").notNull(),
   rating: int("rating").notNull(),
-  comment: text("comment"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
