@@ -224,6 +224,8 @@ export const appRouter = router({
         }
       } else {
         await db.updateUserSubscription(payment.userId, "rejected", payment.plan, null);
+        const rejectedProvider = await db.getProviderProfileByUserId(payment.userId);
+        if (rejectedProvider) await db.updateProviderProfile(rejectedProvider.id, payment.userId, { published: false });
       }
       const title = input.status === "approved" ? "تم تفعيل اشتراكك" : "تم رفض وصل الاشتراك";
       const content = input.adminNote || (input.status === "approved" ? "أصبح حسابك مفعلاً حتى تاريخ انتهاء الاشتراك." : "راجع الوصل وأعد رفع صورة واضحة وصحيحة.");
