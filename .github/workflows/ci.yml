@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      eas_profile:
+        description: "EAS build profile to use"
+        required: false
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - production
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -173,7 +182,7 @@ jobs:
       - name: Build on EAS (Android only for now)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile production --non-interactive --no-wait
+        run: eas build --platform android --profile "${{ github.event.inputs.eas_profile || 'preview' }}" --non-interactive --no-wait
 
   deploy-web:
     name: Deploy web (Expo static export)
