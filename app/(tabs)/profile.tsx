@@ -4,7 +4,6 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
 import { startOAuthLogin } from "@/constants/oauth";
-import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
 
 const items = [
@@ -16,15 +15,24 @@ const items = [
 export default function ProfileScreen() {
   const colors = useColors();
   const { user, isAuthenticated, logout } = useAuth();
-  const accountMutation = trpc.accounts.setType.useMutation();
   const router = useRouter();
   const displayName = user?.name || "زائر خدمني";
+  const handleAuthPress = async () => {
+    if (isAuthenticated) {
+      await logout();
+      return;
+    }
+    const started = await startOAuthLogin();
+    if (!started) {
+      Alert.alert("التسجيل غير متاح حالياً", "تعذر فتح صفحة التسجيل. تحقق من إعدادات تسجيل الدخول ثم حاول مرة أخرى.");
+    }
+  };
   return <ScreenContainer className="px-5" edges={["top", "left", "right"]}>
     <Text style={[styles.title, { color: colors.foreground }]}>حسابي</Text>
     <View style={[styles.profileCard, { backgroundColor: colors.primary }]}> 
       <View style={styles.profileAvatar}><Text style={[styles.profileInitial, { color: colors.primary }]}>ز</Text></View>
       <View style={styles.profileCopy}><Text style={styles.profileName}>{displayName}</Text><Text style={styles.profileSub}>{isAuthenticated ? "حسابك متصل ويمكنك متابعة طلباتك" : "أكمل ملفك للحصول على تجربة أفضل"}</Text></View>
-      <Pressable onPress={() => isAuthenticated ? logout() : startOAuthLogin()} style={styles.loginButton}><Text style={[styles.loginText, { color: colors.primary }]}>{isAuthenticated ? "خروج" : "دخول"}</Text></Pressable>
+      <Pressable onPress={handleAuthPress} style={styles.loginButton}><Text style={[styles.loginText, { color: colors.primary }]}>{isAuthenticated ? "خروج" : "دخول"}</Text></Pressable>
     </View>
     <Pressable onPress={() => router.push("/artisan-register")} style={[styles.artisanCard, { backgroundColor: "#E7F5F2" }]}><View style={[styles.artisanIcon, { backgroundColor: colors.primary }]}><IconSymbol name="wrench.and.screwdriver.fill" size={21} color="#FFFFFF" /></View><View style={styles.artisanCopy}><Text style={[styles.artisanTitle, { color: colors.foreground }]}>التسجيل كحرفي</Text><Text style={[styles.artisanBody, { color: colors.muted }]}>سجّل بياناتك ثم اختر باقة الاشتراك</Text></View><IconSymbol name="chevron.right" size={18} color={colors.primary} /></Pressable>
     <Text style={[styles.section, { color: colors.foreground }]}>الإعدادات</Text>

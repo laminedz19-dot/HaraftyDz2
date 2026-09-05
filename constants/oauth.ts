@@ -35,10 +35,13 @@ export function getApiBaseUrl(): string {
     return API_BASE_URL.replace(/\/$/, "");
   }
 
-  // On web, derive from current hostname by replacing port 8081 with 3000
+  // On web, derive from the Metro host. Local Expo runs on 8081 while the API runs on 3000.
   if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
-    const { protocol, hostname } = window.location;
-    // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
+    const { protocol, hostname, port } = window.location;
+    if (port === "8081" || port === "8082") {
+      return `${protocol}//${hostname}:3000`;
+    }
+    // Hosted preview pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
     const apiHostname = hostname.replace(/^8081-/, "3000-");
     if (apiHostname !== hostname) {
       return `${protocol}//${apiHostname}`;
@@ -78,11 +81,16 @@ export const getRedirectUri = () => {
   }
 };
 
+export const isOAuthConfigured = Boolean(OAUTH_PORTAL_URL && APP_ID);
+
 export const getLoginUrl = () => {
+  if (!isOAuthConfigured) {
+    throw new Error("OAuth configuration is missing: set EXPO_PUBLIC_OAUTH_PORTAL_URL and EXPO_PUBLIC_APP_ID.");
+  }
+
   const redirectUri = getRedirectUri();
   const state = encodeState(redirectUri);
-
-  const url = new URL(`${OAUTH_PORTAL_URL}/app-auth`);
+  const url = new URL(`${OAUTH_PORTAL_URL.replace(/\/$/, "")}/app-auth`);
   url.searchParams.set("appId", APP_ID);
   url.searchParams.set("redirectUri", redirectUri);
   url.searchParams.set("state", state);
@@ -101,31 +109,27 @@ export const getLoginUrl = () => {
  *
  * @returns Always null, the callback is handled via deep link.
  */
-export async function startOAuthLogin(): Promise<string | null> {
-  const loginUrl = getLoginUrl();
-
-  if (ReactNative.Platform.OS === "web") {
-    // On web, just redirect
-    if (typeof window !== "undefined") {
-      window.location.href = loginUrl;
-    }
-    return null;
-  }
-
-  const supported = await Linking.canOpenURL(loginUrl);
-  if (!supported) {
-    console.warn("[OAuth] Cannot open login URL: URL scheme not supported");
-    // 可考虑抛出错误或返回错误状态，让调用方处理
-    return null;
-  }
-
+export async function startOAuthLogin(): Promise<boolean> {
   try {
-    await Linking.openURL(loginUrl);
-  } catch (error) {
-    console.error("[OAuth] Failed to open login URL:", error);
-    // 可考虑抛出错误让调用方处理
-  }
+    const loginUrl = getLoginUrl();
 
-  // The OAuth callback will reopen the app via deep link.
-  return null;
+    if (ReactNative.Platform.OS === "web") {
+      if (typeof window !== "undefined") {
+        window.location.assign(loginUrl);
+      }
+      return true;
+    }
+
+    const supported = await Linking.canOpenURL(loginUrl);
+    if (!supported) {
+      console.warn("[OAuth] Cannot open login URL: URL scheme not supported");
+      return false;
+    }
+
+    await Linking.openURL(loginUrl);
+    return true;
+  } catch (error) {
+    console.error("[OAuth] Failed to start login:", error);
+    return false;
+  }
 }

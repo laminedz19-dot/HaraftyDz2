@@ -151,7 +151,7 @@ export default function HomeScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.proList}
           renderItem={({ item }) => (
-            <Pressable onPress={() => showComingSoon(`ملف ${item.name} جاهز للحجز قريباً.`)} style={({ pressed }) => [styles.proCard, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
+            <Pressable onPress={() => router.push({ pathname: "/provider/[id]", params: { id: item.id } })} style={({ pressed }) => [styles.proCard, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
               <View style={styles.proHeader}>
                 <View style={[styles.avatar, { backgroundColor: item.color }]}><Text style={styles.avatarText}>{item.initials}</Text></View>
                 <View style={styles.proNameBlock}>
