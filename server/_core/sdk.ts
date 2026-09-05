@@ -294,7 +294,9 @@ class SDKServer {
 const CRON_OPEN_ID_PREFIX = "cron_";
 
 /** Result of `sdk.authenticateRequest`. Cron callbacks set `isCron=true` and `taskUid`; see `/home/ubuntu/skills/webdev-periodic-updates/SKILL.md`. */
-export type AuthenticatedUser = User & {
+export type AuthenticatedUser = Omit<User, "phone" | "passwordHash"> & {
+  phone?: string | null;
+  passwordHash?: string | null;
   taskUid?: string;
   isCron?: boolean;
 };

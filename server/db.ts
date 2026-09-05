@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertMessage, InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReport, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertSubscriptionPayment, InsertUser, messages, notifications, portfolioImages, providerProfiles, providerReports, providerReviews, pushTokens, serviceRequests, subscriptionPayments, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -89,6 +89,34 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserByPhone(phone: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+  return result[0];
+}
+
+export async function createPhoneUser(data: Pick<InsertUser, "phone" | "passwordHash" | "name">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(users).values({
+    openId: `phone:${data.phone}`,
+    phone: data.phone,
+    passwordHash: data.passwordHash,
+    name: data.name,
+    loginMethod: "phone",
+    accountType: "provider",
+  });
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0];
+}
+
 export async function updateUserAccountType(userId: number, accountType: "customer" | "provider") {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -104,14 +132,14 @@ export async function updateUserSubscription(userId: number, status: "inactive" 
 export async function listProviderProfiles(category?: string) {
   const db = await getDb();
   if (!db) return [];
-  if (category) return db.select().from(providerProfiles).where(eq(providerProfiles.category, category));
-  return db.select().from(providerProfiles).orderBy(desc(providerProfiles.rating));
+  if (category) return db.select().from(providerProfiles).where(and(eq(providerProfiles.category, category), eq(providerProfiles.published, true)));
+  return db.select().from(providerProfiles).where(eq(providerProfiles.published, true)).orderBy(desc(providerProfiles.rating));
 }
 
 export async function getProviderProfile(id: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(providerProfiles).where(eq(providerProfiles.id, id)).limit(1);
+  const result = await db.select().from(providerProfiles).where(and(eq(providerProfiles.id, id), eq(providerProfiles.published, true))).limit(1);
   return result[0];
 }
 
@@ -143,6 +171,15 @@ export async function createProviderProfile(data: InsertProviderProfile) {
   if (!db) throw new Error("Database not available");
   const result = await db.insert(providerProfiles).values(data);
   return Number((result as { insertId?: number }).insertId ?? 0);
+}
+
+export async function updateProviderProfile(id: number, userId: number, data: Partial<InsertProviderProfile>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const provider = await getProviderProfileByUserId(userId);
+  if (!provider || provider.id !== id) return false;
+  await db.update(providerProfiles).set(data).where(eq(providerProfiles.id, id));
+  return true;
 }
 
 export async function createServiceRequest(data: InsertServiceRequest) {

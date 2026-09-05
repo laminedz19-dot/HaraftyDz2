@@ -7,14 +7,15 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
+import { trpc } from "@/lib/trpc";
 import algeriaCities from "@/data/algeria-cities.json";
 
 const DRAFT_KEY = "khadamni_provider_registration_draft";
 const wilayas = Array.from(new Set(algeriaCities.map((item) => item.wilaya_name))).sort((a, b) => a.localeCompare(b, "ar"));
 const trades = ["سباكة", "كهرباء", "تكييف وتبريد", "تنظيف", "نجارة", "دهان", "بناء وترميم", "حدادة وألمنيوم", "نقل الأثاث", "بستنة وحدائق", "إصلاح الأجهزة", "مكافحة الحشرات"];
 
-type Draft = { firstName: string; lastName: string; phone: string; wilaya: string; municipality: string; trade: string };
-const emptyDraft: Draft = { firstName: "", lastName: "", phone: "", wilaya: "الجزائر", municipality: "", trade: "" };
+type Draft = { firstName: string; lastName: string; phone: string; wilaya: string; municipality: string; trade: string; hourlyRate: string };
+const emptyDraft: Draft = { firstName: "", lastName: "", phone: "", wilaya: "الجزائر", municipality: "", trade: "", hourlyRate: "" };
 
 export default function ArtisanRegisterScreen() {
   const colors = useColors();
@@ -25,6 +26,11 @@ export default function ArtisanRegisterScreen() {
   const [showMunicipalities, setShowMunicipalities] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
   const [wilayaQuery, setWilayaQuery] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [loginMode, setLoginMode] = useState(false);
+  const registerMutation = trpc.auth.registerProvider.useMutation();
+  const loginMutation = trpc.auth.loginProvider.useMutation();
   const municipalities = useMemo(
     () => Array.from(new Set(algeriaCities.filter((item) => item.wilaya_name === draft.wilaya).map((item) => item.commune_name))).sort((a, b) => a.localeCompare(b, "ar")),
     [draft.wilaya],
@@ -67,14 +73,46 @@ export default function ArtisanRegisterScreen() {
       Alert.alert("رقم الهاتف غير صحيح", "أدخل رقم هاتف جزائرياً من 10 أرقام يبدأ بـ 05 أو 06 أو 07.");
       return;
     }
+    if (password.length < 8) {
+      Alert.alert("كلمة المرور قصيرة", "أدخل كلمة مرور من 8 أحرف أو أرقام على الأقل.");
+      return;
+    }
+    if (password !== passwordConfirmation) {
+      Alert.alert("كلمتا المرور غير متطابقتين", "تحقق من كلمة المرور وتأكيدها.");
+      return;
+    }
 
     const normalizedDraft = { ...draft, phone };
+    try {
+      const registration = await registerMutation.mutateAsync({ phone, password, name: `${draft.firstName.trim()} ${draft.lastName.trim()}` });
+      await Auth.setSessionToken(registration.sessionToken);
+      await Auth.setUserInfo(registration.user);
+    } catch (error) {
+      Alert.alert("تعذر إنشاء الحساب", error instanceof Error ? error.message : "حاول مرة أخرى.");
+      return;
+    }
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(normalizedDraft));
 
     if (!isAuthenticated) {
       await Auth.setPostAuthRedirect("/subscription");
     }
     router.push("/subscription");
+  };
+
+  const loginProvider = async () => {
+    const phone = draft.phone.replace(/[ .-]/g, "");
+    if (!/^0[5-7][0-9]{8}$/.test(phone) || !password) {
+      Alert.alert("بيانات الدخول ناقصة", "أدخل رقم الهاتف وكلمة المرور الصحيحة.");
+      return;
+    }
+    try {
+      const result = await loginMutation.mutateAsync({ phone, password });
+      await Auth.setSessionToken(result.sessionToken);
+      await Auth.setUserInfo(result.user);
+      router.replace("/dashboard");
+    } catch (error) {
+      Alert.alert("تعذر تسجيل الدخول", error instanceof Error ? error.message : "تحقق من بياناتك وحاول مرة أخرى.");
+    }
   };
 
   return (
@@ -90,6 +128,9 @@ export default function ArtisanRegisterScreen() {
               <Text style={[styles.subtitle, { color: colors.muted }]}>أدخل بياناتك ثم تابع إلى الاشتراك</Text>
             </View>
           </View>
+          <Pressable onPress={() => setLoginMode((value) => !value)}>
+            <Text style={[styles.loginToggle, { color: colors.primary }]}>{loginMode ? "ليس لديك حساب؟ إنشاء حساب حرفي" : "لديك حساب حرفي؟ تسجيل الدخول"}</Text>
+          </Pressable>
 
           <View style={[styles.stepper, { backgroundColor: `${colors.primary}12` }]}>
             <View style={[styles.step, { backgroundColor: colors.primary }]}><Text style={styles.stepNumber}>1</Text></View>
@@ -115,6 +156,11 @@ export default function ArtisanRegisterScreen() {
             <IconSymbol name="phone.fill" size={18} color={colors.primary} />
             <TextInput value={draft.phone} onChangeText={(value) => update("phone", value.replace(/[^0-9]/g, ""))} placeholder="05 XX XX XX XX" placeholderTextColor={colors.muted} keyboardType="phone-pad" maxLength={10} style={[styles.inputInline, { color: colors.foreground }]} textAlign="right" />
           </View>
+
+          <Text style={[styles.label, { color: colors.foreground }]}>كلمة المرور</Text>
+          <TextInput value={password} onChangeText={setPassword} placeholder="8 أحرف أو أرقام على الأقل" placeholderTextColor={colors.muted} secureTextEntry style={[styles.input, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} textAlign="right" />
+          <Text style={[styles.label, { color: colors.foreground }]}>تأكيد كلمة المرور</Text>
+          <TextInput value={passwordConfirmation} onChangeText={setPasswordConfirmation} placeholder="أعد كتابة كلمة المرور" placeholderTextColor={colors.muted} secureTextEntry style={[styles.input, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} textAlign="right" />
 
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>مكان العمل</Text>
           <Text style={[styles.label, { color: colors.foreground }]}>الولاية</Text>
@@ -175,12 +221,15 @@ export default function ArtisanRegisterScreen() {
           </Pressable>
           {showTrades && <View style={[styles.options, { backgroundColor: colors.surface, borderColor: colors.border }]}>{trades.map((item) => <Pressable key={item} onPress={() => { update("trade", item); setShowTrades(false); }} style={[styles.option, { borderBottomColor: colors.border }]}><Text style={{ color: colors.foreground, fontSize: 12 }}>{item}</Text></Pressable>)}</View>}
 
+          <Text style={[styles.label, { color: colors.foreground }]}>السعر التقريبي للعمل (دج)</Text>
+          <TextInput value={draft.hourlyRate} onChangeText={(value) => update("hourlyRate", value.replace(/[^0-9]/g, ""))} placeholder="مثال: 3000" placeholderTextColor={colors.muted} keyboardType="number-pad" style={[styles.input, { color: colors.foreground, backgroundColor: colors.surface, borderColor: colors.border }]} textAlign="right" />
+
           <View style={[styles.info, { backgroundColor: "#E7F5F2" }]}>
             <IconSymbol name="info.circle.fill" size={19} color={colors.primary} />
             <Text style={[styles.infoText, { color: colors.muted }]}>بعد الضغط على متابعة، ستنتقل إلى اختيار باقة الاشتراك وتحميل وصل الدفع.</Text>
           </View>
-          <Pressable onPress={continueToSubscription} style={({ pressed }) => [styles.submit, { backgroundColor: colors.primary }, pressed && { transform: [{ scale: 0.98 }] }]}>
-            <Text style={styles.submitText}>متابعة إلى الاشتراك</Text>
+          <Pressable disabled={registerMutation.isPending || loginMutation.isPending} onPress={loginMode ? loginProvider : continueToSubscription} style={({ pressed }) => [styles.submit, { backgroundColor: colors.primary, opacity: registerMutation.isPending || loginMutation.isPending ? 0.6 : 1 }, pressed && { transform: [{ scale: 0.98 }] }]}>
+            <Text style={styles.submitText}>{loginMode ? "تسجيل الدخول" : "متابعة إلى الاشتراك"}</Text>
             <IconSymbol name="chevron.right" size={18} color="#FFFFFF" />
           </Pressable>
         </ScrollView>
@@ -201,6 +250,7 @@ const styles = StyleSheet.create({
   stepNumber: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
   line: { width: 27, height: 2 },
   stepText: { flex: 1, textAlign: "right", fontSize: 11, fontWeight: "800" },
+  loginToggle: { textAlign: "right", fontSize: 12, fontWeight: "800", marginBottom: 4 },
   sectionTitle: { fontSize: 16, fontWeight: "800", textAlign: "right", marginTop: 12 },
   row: { flexDirection: "row-reverse", gap: 8 },
   half: { flex: 1, gap: 7 },

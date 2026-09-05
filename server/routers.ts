@@ -9,6 +9,20 @@ import { storageGetSignedUrl } from "./storage";
 import { screenSubscriptionReceipt } from "./subscription-review";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+
+function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+}
+
+function verifyPassword(password: string, stored: string) {
+  const [salt, expected] = stored.split(":");
+  if (!salt || !expected) return false;
+  const actual = scryptSync(password, salt, 64);
+  const expectedBuffer = Buffer.from(expected, "hex");
+  return actual.length === expectedBuffer.length && timingSafeEqual(actual, expectedBuffer);
+}
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -22,11 +36,28 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    registerProvider: publicProcedure.input(z.object({ phone: z.string().regex(/^0[5-7][0-9]{8}$/), password: z.string().min(8), name: z.string().min(2) })).mutation(async ({ input, ctx }) => {
+      if (await db.getUserByPhone(input.phone)) throw new TRPCError({ code: "CONFLICT", message: "رقم الهاتف مسجل مسبقاً. استخدم تسجيل الدخول." });
+      const userId = await db.createPhoneUser({ phone: input.phone, passwordHash: hashPassword(input.password), name: input.name });
+      const user = await db.getUserById(userId);
+      if (!user) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "تعذر إنشاء الحساب." });
+      const sessionToken = await (await import("./_core/sdk")).sdk.createSessionToken(user.openId, { name: user.name ?? "" });
+      ctx.res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(ctx.req), maxAge: 365 * 24 * 60 * 60 * 1000 });
+      return { sessionToken, user };
+    }),
+    loginProvider: publicProcedure.input(z.object({ phone: z.string().regex(/^0[5-7][0-9]{8}$/), password: z.string().min(1) })).mutation(async ({ input, ctx }) => {
+      const user = await db.getUserByPhone(input.phone);
+      if (!user?.passwordHash || !verifyPassword(input.password, user.passwordHash)) throw new TRPCError({ code: "UNAUTHORIZED", message: "رقم الهاتف أو كلمة المرور غير صحيحة." });
+      const sessionToken = await (await import("./_core/sdk")).sdk.createSessionToken(user.openId, { name: user.name ?? "" });
+      ctx.res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(ctx.req), maxAge: 365 * 24 * 60 * 60 * 1000 });
+      return { sessionToken, user };
+    }),
   }),
 
   providers: router({
     list: publicProcedure.input(z.object({ category: z.string().optional() }).optional()).query(({ input }) => db.listProviderProfiles(input?.category)),
     get: publicProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getProviderProfile(input.id)),
+    mine: protectedProcedure.query(({ ctx }) => db.getProviderProfileByUserId(ctx.user.id)),
     report: publicProcedure.input(z.object({ providerId: z.number(), reason: z.enum(["fake", "inactive", "wrong_info", "inappropriate", "other"]), details: z.string().max(1000).optional() })).mutation(async ({ input }) => {
       const provider = await db.getProviderProfile(input.providerId);
       if (!provider) throw new TRPCError({ code: "NOT_FOUND", message: "بروفايل الحرفي غير موجود." });
@@ -42,12 +73,12 @@ export const appRouter = router({
       return { success: true } as const;
     }),
     createProfile: protectedProcedure.input(z.object({
-      name: z.string().min(2), trade: z.string().min(2), category: z.string().min(2), bio: z.string().optional(), city: z.string().optional(), phone: z.string().optional(), hourlyRate: z.number().optional(),
+      name: z.string().min(2), trade: z.string().min(2), category: z.string().min(2), bio: z.string().optional(), city: z.string().optional(), phone: z.string().optional(), hourlyRate: z.number().optional(), published: z.boolean().optional(),
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.subscriptionStatus !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "يلزم تفعيل اشتراك مدفوع ومراجع قبل إنشاء ملف الحرفي." });
       await db.updateUserAccountType(ctx.user.id, "provider");
       return db.createProviderProfile({ ...input, userId: ctx.user.id });
     }),
+    updateProfile: protectedProcedure.input(z.object({ id: z.number(), hourlyRate: z.number().int().min(0).max(1000000), bio: z.string().max(2000).optional(), published: z.boolean().optional() })).mutation(({ input, ctx }) => db.updateProviderProfile(input.id, ctx.user.id, { hourlyRate: input.hourlyRate, bio: input.bio, published: input.published })),
   }),
 
   portfolio: router({
@@ -152,6 +183,17 @@ export const appRouter = router({
       const screening = await screenSubscriptionReceipt({ signedUrl, mimeType: input.mimeType, amount: planData.amount, planLabel: planData.label, destinationAccount: "007999990008761821", paymentKey: "94" });
       const id = await db.createSubscriptionPayment({ userId: ctx.user.id, plan: input.plan, amount: planData.amount, destinationAccount: "007999990008761821", paymentKey: "94", receiptUrl: stored.url, providerDraft: input.providerDraft, aiVerdict: screening.verdict, aiConfidence: screening.confidence, aiNotes: screening.notes, status: "pending" });
       await db.updateUserSubscription(ctx.user.id, "pending", input.plan, null);
+      if (input.providerDraft) {
+        try {
+          const draft = JSON.parse(input.providerDraft) as { firstName: string; lastName: string; phone: string; wilaya: string; municipality: string; trade: string; hourlyRate?: number };
+          const existing = await db.getProviderProfileByUserId(ctx.user.id);
+          const profileData = { name: `${draft.firstName} ${draft.lastName}`, trade: draft.trade, category: draft.trade, city: `${draft.municipality}, ${draft.wilaya}`, phone: draft.phone, bio: "حرفي مسجل عبر خدمني", hourlyRate: draft.hourlyRate ? Number(draft.hourlyRate) : undefined, published: screening.verdict === "likely_valid" };
+          if (existing) await db.updateProviderProfile(existing.id, ctx.user.id, profileData);
+          else await db.createProviderProfile({ ...profileData, userId: ctx.user.id });
+        } catch (error) {
+          console.warn("[Subscription] Receipt saved but provider profile draft could not be stored", error);
+        }
+      }
       await db.createNotification({ userId: ctx.user.id, title: "وصل الاشتراك قيد المراجعة", content: "تم استلام الوصل. لن يتم تفعيل الاشتراك حتى تتم الموافقة اليدوية." });
       return { id, verdict: screening.verdict, confidence: screening.confidence, notes: screening.notes };
     }),
@@ -168,14 +210,17 @@ export const appRouter = router({
         const days = payment.plan === "monthly" ? 30 : payment.plan === "seasonal" ? 90 : 365;
         const expires = new Date(); expires.setDate(expires.getDate() + days);
         await db.updateUserSubscription(payment.userId, "active", payment.plan, expires);
-        if (payment.providerDraft && !(await db.getProviderProfileByUserId(payment.userId))) {
+        const existingProvider = await db.getProviderProfileByUserId(payment.userId);
+        if (payment.providerDraft && !existingProvider) {
           try {
-            const draft = JSON.parse(payment.providerDraft) as { firstName: string; lastName: string; phone: string; wilaya: string; municipality: string; trade: string };
+            const draft = JSON.parse(payment.providerDraft) as { firstName: string; lastName: string; phone: string; wilaya: string; municipality: string; trade: string; hourlyRate?: string };
             await db.updateUserAccountType(payment.userId, "provider");
-            await db.createProviderProfile({ userId: payment.userId, name: `${draft.firstName} ${draft.lastName}`, trade: draft.trade, category: draft.trade, city: `${draft.municipality}, ${draft.wilaya}`, phone: draft.phone, bio: "حرفي مسجل عبر خدمني", verified: false });
+            await db.createProviderProfile({ userId: payment.userId, name: `${draft.firstName} ${draft.lastName}`, trade: draft.trade, category: draft.trade, city: `${draft.municipality}, ${draft.wilaya}`, phone: draft.phone, hourlyRate: draft.hourlyRate ? Number(draft.hourlyRate) : undefined, bio: "حرفي مسجل عبر خدمني", verified: false, published: true });
           } catch (error) {
             console.warn("[Subscription] Approved payment but provider draft could not create profile", error);
           }
+        } else if (existingProvider) {
+          await db.updateProviderProfile(existingProvider.id, payment.userId, { published: true });
         }
       } else {
         await db.updateUserSubscription(payment.userId, "rejected", payment.plan, null);
