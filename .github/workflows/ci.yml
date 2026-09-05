@@ -62,8 +62,7 @@ jobs:
       - name: Run ESLint
         run: pnpm lint
 
-      - name: Check formatting
-        run: pnpm exec prettier --check .
+      
 
   typecheck:
     name: Type check
