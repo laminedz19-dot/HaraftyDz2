@@ -176,8 +176,8 @@ jobs:
       - name: Build on EAS (Android + iOS, no wait)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform all --profile production --non-interactive --no-wait
-
+        
+run: eas build --platform android --profile production --non-interactive --no-wait
   deploy-web:
     name: Deploy web (Expo static export)
     runs-on: ubuntu-latest
