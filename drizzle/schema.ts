@@ -49,6 +49,18 @@ export const providerProfiles = mysqlTable("providerProfiles", {
 export type ProviderProfile = typeof providerProfiles.$inferSelect;
 export type InsertProviderProfile = typeof providerProfiles.$inferInsert;
 
+export const providerReports = mysqlTable("providerReports", {
+  id: int("id").autoincrement().primaryKey(),
+  providerId: int("providerId").notNull(),
+  reason: varchar("reason", { length: 64 }).notNull(),
+  details: text("details"),
+  status: mysqlEnum("status", ["pending", "reviewed", "dismissed"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ProviderReport = typeof providerReports.$inferSelect;
+export type InsertProviderReport = typeof providerReports.$inferInsert;
+
 export const serviceRequests = mysqlTable("serviceRequests", {
   id: int("id").autoincrement().primaryKey(),
   customerId: int("customerId").notNull(),

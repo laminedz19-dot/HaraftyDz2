@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertMessage, InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertSubscriptionPayment, InsertUser, messages, notifications, portfolioImages, providerProfiles, providerReviews, pushTokens, serviceRequests, subscriptionPayments, users } from "../drizzle/schema";
+import { InsertMessage, InsertNotification, InsertPortfolioImage, InsertProviderProfile, InsertProviderReport, InsertProviderReview, InsertPushToken, InsertServiceRequest, InsertSubscriptionPayment, InsertUser, messages, notifications, portfolioImages, providerProfiles, providerReports, providerReviews, pushTokens, serviceRequests, subscriptionPayments, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -120,6 +120,22 @@ export async function getProviderProfileByUserId(userId: number) {
   if (!db) return undefined;
   const result = await db.select().from(providerProfiles).where(eq(providerProfiles.userId, userId)).limit(1);
   return result[0];
+}
+export async function createProviderReport(data: InsertProviderReport) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(providerReports).values(data);
+  return Number((result as { insertId?: number }).insertId ?? 0);
+}
+export async function listProviderReports() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(providerReports).orderBy(desc(providerReports.createdAt));
+}
+export async function updateProviderReportStatus(id: number, status: "reviewed" | "dismissed") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(providerReports).set({ status }).where(eq(providerReports.id, id));
 }
 
 export async function createProviderProfile(data: InsertProviderProfile) {

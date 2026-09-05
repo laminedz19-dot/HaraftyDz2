@@ -27,6 +27,20 @@ export const appRouter = router({
   providers: router({
     list: publicProcedure.input(z.object({ category: z.string().optional() }).optional()).query(({ input }) => db.listProviderProfiles(input?.category)),
     get: publicProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getProviderProfile(input.id)),
+    report: publicProcedure.input(z.object({ providerId: z.number(), reason: z.enum(["fake", "inactive", "wrong_info", "inappropriate", "other"]), details: z.string().max(1000).optional() })).mutation(async ({ input }) => {
+      const provider = await db.getProviderProfile(input.providerId);
+      if (!provider) throw new TRPCError({ code: "NOT_FOUND", message: "بروفايل الحرفي غير موجود." });
+      return db.createProviderReport(input);
+    }),
+    adminReports: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "هذه الصفحة مخصصة للإدارة." });
+      return db.listProviderReports();
+    }),
+    adminUpdateReport: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["reviewed", "dismissed"]) })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "هذه العملية مخصصة للإدارة." });
+      await db.updateProviderReportStatus(input.id, input.status);
+      return { success: true } as const;
+    }),
     createProfile: protectedProcedure.input(z.object({
       name: z.string().min(2), trade: z.string().min(2), category: z.string().min(2), bio: z.string().optional(), city: z.string().optional(), phone: z.string().optional(), hourlyRate: z.number().optional(),
     })).mutation(async ({ input, ctx }) => {
