@@ -28,9 +28,7 @@ export default function ArtisanRegisterScreen() {
   const [wilayaQuery, setWilayaQuery] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [loginMode, setLoginMode] = useState(false);
   const registerMutation = trpc.auth.registerProvider.useMutation();
-  const loginMutation = trpc.auth.loginProvider.useMutation();
   const municipalities = useMemo(
     () => Array.from(new Set(algeriaCities.filter((item) => item.wilaya_name === draft.wilaya).map((item) => item.commune_name))).sort((a, b) => a.localeCompare(b, "ar")),
     [draft.wilaya],
@@ -99,22 +97,6 @@ export default function ArtisanRegisterScreen() {
     router.push("/subscription");
   };
 
-  const loginProvider = async () => {
-    const phone = draft.phone.replace(/[ .-]/g, "");
-    if (!/^0[5-7][0-9]{8}$/.test(phone) || !password) {
-      Alert.alert("بيانات الدخول ناقصة", "أدخل رقم الهاتف وكلمة المرور الصحيحة.");
-      return;
-    }
-    try {
-      const result = await loginMutation.mutateAsync({ phone, password });
-      await Auth.setSessionToken(result.sessionToken);
-      await Auth.setUserInfo(result.user);
-      router.replace("/dashboard");
-    } catch (error) {
-      Alert.alert("تعذر تسجيل الدخول", error instanceof Error ? error.message : "تحقق من بياناتك وحاول مرة أخرى.");
-    }
-  };
-
   return (
     <ScreenContainer className="px-5" edges={["top", "left", "right"]}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -128,10 +110,6 @@ export default function ArtisanRegisterScreen() {
               <Text style={[styles.subtitle, { color: colors.muted }]}>أدخل بياناتك ثم تابع إلى الاشتراك</Text>
             </View>
           </View>
-          <Pressable onPress={() => setLoginMode((value) => !value)}>
-            <Text style={[styles.loginToggle, { color: colors.primary }]}>{loginMode ? "ليس لديك حساب؟ إنشاء حساب حرفي" : "لديك حساب حرفي؟ تسجيل الدخول"}</Text>
-          </Pressable>
-
           <View style={[styles.stepper, { backgroundColor: `${colors.primary}12` }]}>
             <View style={[styles.step, { backgroundColor: colors.primary }]}><Text style={styles.stepNumber}>1</Text></View>
             <View style={[styles.line, { backgroundColor: colors.border }]} />
@@ -228,8 +206,8 @@ export default function ArtisanRegisterScreen() {
             <IconSymbol name="info.circle.fill" size={19} color={colors.primary} />
             <Text style={[styles.infoText, { color: colors.muted }]}>بعد الضغط على متابعة، ستنتقل إلى اختيار باقة الاشتراك وتحميل وصل الدفع.</Text>
           </View>
-          <Pressable disabled={registerMutation.isPending || loginMutation.isPending} onPress={loginMode ? loginProvider : continueToSubscription} style={({ pressed }) => [styles.submit, { backgroundColor: colors.primary, opacity: registerMutation.isPending || loginMutation.isPending ? 0.6 : 1 }, pressed && { transform: [{ scale: 0.98 }] }]}>
-            <Text style={styles.submitText}>{loginMode ? "تسجيل الدخول" : "متابعة إلى الاشتراك"}</Text>
+          <Pressable disabled={registerMutation.isPending} onPress={continueToSubscription} style={({ pressed }) => [styles.submit, { backgroundColor: colors.primary, opacity: registerMutation.isPending ? 0.6 : 1 }, pressed && { transform: [{ scale: 0.98 }] }]}>
+            <Text style={styles.submitText}>متابعة إلى الاشتراك</Text>
             <IconSymbol name="chevron.right" size={18} color="#FFFFFF" />
           </Pressable>
         </ScrollView>
@@ -250,7 +228,6 @@ const styles = StyleSheet.create({
   stepNumber: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
   line: { width: 27, height: 2 },
   stepText: { flex: 1, textAlign: "right", fontSize: 11, fontWeight: "800" },
-  loginToggle: { textAlign: "right", fontSize: 12, fontWeight: "800", marginBottom: 4 },
   sectionTitle: { fontSize: 16, fontWeight: "800", textAlign: "right", marginTop: 12 },
   row: { flexDirection: "row-reverse", gap: 8 },
   half: { flex: 1, gap: 7 },
