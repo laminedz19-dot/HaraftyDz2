@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Pressable,
   ScrollView,
@@ -71,8 +70,6 @@ export default function HomeScreen() {
     return pros.filter((pro) => `${pro.name} ${pro.trade}`.includes(query.trim()));
   }, [query]);
 
-  const showComingSoon = (message: string) => Alert.alert("خدمني", message);
-
   return (
     <ScreenContainer className="px-5" edges={["top", "left", "right"]}>
       <StatusBar style="dark" />
@@ -103,10 +100,6 @@ export default function HomeScreen() {
           <Text style={styles.heroKicker}>خدمة موثوقة، في وقتك</Text>
           <Text style={styles.heroTitle}>منزلك يستاهل{`\n`}الأفضل.</Text>
           <Text style={styles.heroBody}>اكتشف حرفيين موثوقين بالقرب منك وأنجز أشغالك براحة بال.</Text>
-          <Pressable onPress={() => showComingSoon("أرسل تفاصيل طلبك وسنقترح عليك أفضل الحرفيين القريبين منك.")} style={({ pressed }) => [styles.heroButton, pressed && styles.pressed]}>
-            <Text style={[styles.heroButtonText, { color: colors.primary }]}>اطلب خدمة الآن</Text>
-            <IconSymbol name="chevron.right" size={18} color={colors.primary} />
-          </Pressable>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -135,7 +128,6 @@ export default function HomeScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>حرفيون بالقرب منك</Text>
-          <Pressable onPress={() => showComingSoon("يمكنك تصفية النتائج حسب التقييم، السعر، والمسافة.")}><Text style={[styles.seeAll, { color: colors.primary }]}>استكشف</Text></Pressable>
         </View>
         <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <IconSymbol name="magnifyingglass" size={21} color={colors.muted} />
@@ -204,8 +196,6 @@ const styles = StyleSheet.create({
   heroKicker: { color: "#B9F3E8", fontSize: 13, fontWeight: "700", textAlign: "right", marginBottom: 10 },
   heroTitle: { color: "#FFFFFF", fontSize: 32, lineHeight: 38, fontWeight: "800", textAlign: "right", letterSpacing: -0.8 },
   heroBody: { color: "#D8F7F1", fontSize: 13, lineHeight: 21, width: "76%", alignSelf: "flex-end", textAlign: "right", marginTop: 9 },
-  heroButton: { alignSelf: "flex-end", marginTop: 17, paddingVertical: 12, paddingHorizontal: 15, borderRadius: 13, backgroundColor: "#FFFFFF", flexDirection: "row-reverse", alignItems: "center", gap: 8 },
-  heroButtonText: { fontSize: 13, fontWeight: "800" },
   sectionHeader: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginTop: 2 },
   sectionTitle: { fontSize: 19, fontWeight: "800", textAlign: "right" },
   seeAll: { fontSize: 13, fontWeight: "700" },
