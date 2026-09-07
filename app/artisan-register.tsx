@@ -5,7 +5,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
 import { trpc } from "@/lib/trpc";
 import algeriaCities from "@/data/algeria-cities.json";
@@ -20,7 +19,6 @@ const emptyDraft: Draft = { firstName: "", lastName: "", phone: "", wilaya: "ا�
 export default function ArtisanRegisterScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [showWilayas, setShowWilayas] = useState(false);
   const [showMunicipalities, setShowMunicipalities] = useState(false);
@@ -29,6 +27,7 @@ export default function ArtisanRegisterScreen() {
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const registerMutation = trpc.auth.registerProvider.useMutation();
+  const createProfileMutation = trpc.providers.createProfile.useMutation();
   const municipalities = useMemo(
     () => Array.from(new Set(algeriaCities.filter((item) => item.wilaya_name === draft.wilaya).map((item) => item.commune_name))).sort((a, b) => a.localeCompare(b, "ar")),
     [draft.wilaya],
@@ -61,7 +60,7 @@ export default function ArtisanRegisterScreen() {
     setShowMunicipalities(false);
   };
 
-  const continueToSubscription = async () => {
+  const createArtisanProfile = async () => {
     const phone = draft.phone.replace(/[ .-]/g, "");
     if (!draft.firstName.trim() || !draft.lastName.trim() || !phone || !draft.wilaya || !draft.municipality.trim() || !draft.trade) {
       Alert.alert("أكمل بيانات التسجيل", "أدخل الاسم واللقب ورقم الهاتف والولاية والبلدية واختر المهنة.");
@@ -85,16 +84,22 @@ export default function ArtisanRegisterScreen() {
       const registration = await registerMutation.mutateAsync({ phone, password, name: `${draft.firstName.trim()} ${draft.lastName.trim()}` });
       await Auth.setSessionToken(registration.sessionToken);
       await Auth.setUserInfo(registration.user);
+      await createProfileMutation.mutateAsync({
+        name: `${draft.firstName.trim()} ${draft.lastName.trim()}`,
+        trade: draft.trade,
+        category: draft.trade,
+        city: `${draft.municipality}, ${draft.wilaya}`,
+        phone,
+        bio: "حرفي مسجل عبر خدمني",
+        hourlyRate: draft.hourlyRate ? Number(draft.hourlyRate) : undefined,
+        published: false,
+      });
     } catch (error) {
-      Alert.alert("تعذر إنشاء الحساب", error instanceof Error ? error.message : "حاول مرة أخرى.");
+      Alert.alert("تعذر إكمال التسجيل", error instanceof Error ? error.message : "حاول مرة أخرى.");
       return;
     }
     await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(normalizedDraft));
-
-    if (!isAuthenticated) {
-      await Auth.setPostAuthRedirect("/subscription");
-    }
-    router.push("/subscription");
+    router.replace("/dashboard");
   };
 
   return (
@@ -107,14 +112,14 @@ export default function ArtisanRegisterScreen() {
             </Pressable>
             <View>
               <Text style={[styles.title, { color: colors.foreground }]}>التسجيل كحرفي</Text>
-              <Text style={[styles.subtitle, { color: colors.muted }]}>أدخل بياناتك ثم تابع إلى الاشتراك</Text>
+              <Text style={[styles.subtitle, { color: colors.muted }]}>أنشئ حسابك وملفك، ثم انشره عند جاهزيتك</Text>
             </View>
           </View>
           <View style={[styles.stepper, { backgroundColor: `${colors.primary}12` }]}>
             <View style={[styles.step, { backgroundColor: colors.primary }]}><Text style={styles.stepNumber}>1</Text></View>
             <View style={[styles.line, { backgroundColor: colors.border }]} />
             <View style={[styles.step, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.stepNumber, { color: colors.muted }]}>2</Text></View>
-            <Text style={[styles.stepText, { color: colors.primary }]}>بيانات الحرفي ثم الاشتراك</Text>
+            <Text style={[styles.stepText, { color: colors.primary }]}>إنشاء الملف ثم النشر</Text>
           </View>
 
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>المعلومات الشخصية</Text>
@@ -204,10 +209,10 @@ export default function ArtisanRegisterScreen() {
 
           <View style={[styles.info, { backgroundColor: "#E7F5F2" }]}>
             <IconSymbol name="info.circle.fill" size={19} color={colors.primary} />
-            <Text style={[styles.infoText, { color: colors.muted }]}>بعد الضغط على متابعة، ستنتقل إلى اختيار باقة الاشتراك وتحميل وصل الدفع.</Text>
+            <Text style={[styles.infoText, { color: colors.muted }]}>سيُحفظ ملفك كمسودة. تحتاج إلى اشتراك فقط عند نشره للعملاء.</Text>
           </View>
-          <Pressable disabled={registerMutation.isPending} onPress={continueToSubscription} style={({ pressed }) => [styles.submit, { backgroundColor: colors.primary, opacity: registerMutation.isPending ? 0.6 : 1 }, pressed && { transform: [{ scale: 0.98 }] }]}>
-            <Text style={styles.submitText}>متابعة إلى الاشتراك</Text>
+          <Pressable disabled={registerMutation.isPending || createProfileMutation.isPending} onPress={createArtisanProfile} style={({ pressed }) => [styles.submit, { backgroundColor: colors.primary, opacity: registerMutation.isPending || createProfileMutation.isPending ? 0.6 : 1 }, pressed && { transform: [{ scale: 0.98 }] }]}>
+            <Text style={styles.submitText}>إنشاء ملف الحرفي</Text>
             <IconSymbol name="chevron.right" size={18} color="#FFFFFF" />
           </Pressable>
         </ScrollView>

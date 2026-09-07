@@ -78,10 +78,18 @@ export const appRouter = router({
     createProfile: protectedProcedure.input(z.object({
       name: z.string().min(2), trade: z.string().min(2), category: z.string().min(2), bio: z.string().optional(), city: z.string().optional(), phone: z.string().optional(), hourlyRate: z.number().optional(), published: z.boolean().optional(),
     })).mutation(async ({ input, ctx }) => {
+      if (input.published && ctx.user.subscriptionStatus !== "active") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "فعّل اشتراكك قبل نشر ملف الحرفي." });
+      }
       await db.updateUserAccountType(ctx.user.id, "provider");
       return db.createProviderProfile({ ...input, userId: ctx.user.id });
     }),
-    updateProfile: protectedProcedure.input(z.object({ id: z.number(), hourlyRate: z.number().int().min(0).max(1000000), bio: z.string().max(2000).optional(), published: z.boolean().optional() })).mutation(({ input, ctx }) => db.updateProviderProfile(input.id, ctx.user.id, { hourlyRate: input.hourlyRate, bio: input.bio, published: input.published })),
+    updateProfile: protectedProcedure.input(z.object({ id: z.number(), name: z.string().min(2).optional(), trade: z.string().min(2).optional(), category: z.string().min(2).optional(), city: z.string().max(120).optional(), phone: z.string().max(32).optional(), hourlyRate: z.number().int().min(0).max(1000000), bio: z.string().max(2000).optional(), published: z.boolean().optional() })).mutation(async ({ input, ctx }) => {
+      if (input.published && ctx.user.subscriptionStatus !== "active") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "فعّل اشتراكك قبل نشر ملف الحرفي." });
+      }
+      return db.updateProviderProfile(input.id, ctx.user.id, { name: input.name, trade: input.trade, category: input.category, city: input.city, phone: input.phone, hourlyRate: input.hourlyRate, bio: input.bio, published: input.published });
+    }),
   }),
 
   portfolio: router({

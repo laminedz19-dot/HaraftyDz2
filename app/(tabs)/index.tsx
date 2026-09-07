@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -53,7 +53,19 @@ export default function HomeScreen() {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [location, setLocation] = useState("الجزائر العاصمة");
+  const [visitorCount, setVisitorCount] = useState(15000);
+  const [visitorPulse, setVisitorPulse] = useState(true);
   const providersQuery = trpc.providers.list.useQuery(undefined);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisitorCount((current) => {
+        const change = Math.floor(Math.random() * 101) - 50;
+        return Math.max(10000, Math.min(20000, current + change));
+      });
+      setVisitorPulse((current) => !current);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
   const pros: Pro[] = (providersQuery.data ?? []).map((provider, index) => ({
     id: String(provider.id),
     name: provider.name,
@@ -83,6 +95,11 @@ export default function HomeScreen() {
             <IconSymbol name="bell.fill" size={22} color={colors.foreground} />
             <View style={styles.notificationDot} />
           </Pressable>
+        </View>
+
+        <View style={[styles.visitorBar, { backgroundColor: colors.primary, opacity: visitorPulse ? 1 : 0.48 }]}>
+          <View style={styles.liveDot} />
+          <Text style={styles.visitorText}>يزور تطبيقنا الآن {visitorCount.toLocaleString("ar-DZ")} زائر</Text>
         </View>
 
         <View style={[styles.locationPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -184,6 +201,9 @@ const styles = StyleSheet.create({
   brand: { fontSize: 29, fontWeight: "800", textAlign: "right", letterSpacing: -0.7 },
   iconButton: { width: 44, height: 44, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative" },
   notificationDot: { position: "absolute", top: 9, right: 9, width: 7, height: 7, borderRadius: 4, backgroundColor: "#E26D5C", borderWidth: 1.5, borderColor: "#FFFFFF" },
+  visitorBar: { minHeight: 38, borderRadius: 13, paddingHorizontal: 13, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#FFFFFF" },
+  visitorText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800", textAlign: "center" },
   locationPill: { minHeight: 42, borderWidth: 1, borderRadius: 14, flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 13, gap: 7 },
   locationLabel: { fontSize: 12, marginRight: 1 },
   locationValue: { fontSize: 13, fontWeight: "700", marginLeft: 2 },
