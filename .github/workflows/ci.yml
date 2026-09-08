@@ -5,16 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      eas_profile:
-        description: "EAS build profile to use"
-        required: false
-        default: "preview"
-        type: choice
-        options:
-          - preview
-          - production
+
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -153,8 +144,8 @@ jobs:
           path: dist/
           retention-days: 7
 
-  eas-build:
-    name: EAS Build (mobile)
+  eas  build-android:
+    name: Build Android APK
     runs-on: ubuntu-latest
     needs: [lint, typecheck, test]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -173,16 +164,30 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install eas-cli
-        run: npm install -g eas-cli
+      - name: Build APK
+        working-directory: ./android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
-      - name: Build on EAS (Android only for now)
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile "${{ github.event.inputs.eas_profile || 'preview' }}" --non-interactive --no-wait
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/release/
+          retention-days: 7
 
   deploy-web:
     name: Deploy web (Expo static export)
