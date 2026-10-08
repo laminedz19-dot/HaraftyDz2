@@ -1,0 +1,15 @@
+# Supabase project configuration for HaraftyDz2
+# Project ref: dotmoiorzpowzwlyapbr
+project_id = "dotmoiorzpowzwlyapbr"
+
+[api]
+enabled = true
+
+[db]
+port = 54322
+
+[db.migrations]
+schema_paths = ["./migrations"]
+
+[auth]
+enabled = true
