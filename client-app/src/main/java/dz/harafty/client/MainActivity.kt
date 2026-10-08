@@ -33,74 +33,67 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent { ClientApp() }
-    }
-}
+class MainActivity : ComponentActivity() { override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { ClientApp() } } }
 
 @Composable
-fun ClientApp(clientViewModel: ClientViewModel = viewModel()) {
-    val state by clientViewModel.state.collectAsState()
+fun ClientApp(vm: ClientViewModel = viewModel()) {
+    val state by vm.state.collectAsState()
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MaterialTheme {
-            if (state.isAuthenticated) {
-                ClientServicesScreen(state, clientViewModel::loadServices, clientViewModel::signOut)
-            } else {
-                ClientLoginScreen(state, clientViewModel::updateEmail, clientViewModel::updatePassword, clientViewModel::signIn)
-            }
+            if (!state.isAuthenticated) AuthScreen(state, vm::updateEmail, vm::updatePassword, vm::updateDisplayName, vm::updatePhone, { if (state.isRegisterMode) vm.signUp() else vm.signIn() }, { vm.setRegisterMode(!state.isRegisterMode) })
+            else ClientServicesScreen(state, vm::loadServices, vm::signOut, vm::updateDisplayName, vm::updatePhone, vm::saveProfile)
         }
     }
 }
 
 @Composable
-private fun ClientLoginScreen(state: ClientUiState, onEmail: (String) -> Unit, onPassword: (String) -> Unit, onLogin: () -> Unit) {
+private fun AuthScreen(state: ClientUiState, onEmail: (String) -> Unit, onPassword: (String) -> Unit, onName: (String) -> Unit, onPhone: (String) -> Unit, onSubmit: () -> Unit, onToggle: () -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("حرفتي DZ") }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("مرحبًا بك", style = MaterialTheme.typography.headlineMedium)
-            Text("سجّل الدخول للعثور على الحرفي المناسب")
-            OutlinedTextField(state.email, onEmail, label = { Text("البريد الإلكتروني") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 24.dp))
-            OutlinedTextField(state.password, onPassword, label = { Text("كلمة المرور") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
-            Button(onClick = onLogin, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                if (state.isLoading) CircularProgressIndicator(strokeWidth = 2.dp) else Text("تسجيل الدخول")
+            Text(if (state.isRegisterMode) "إنشاء حساب جديد" else "مرحبًا بك", style = MaterialTheme.typography.headlineMedium)
+            if (state.isRegisterMode) {
+                OutlinedTextField(state.displayName, onName, label = { Text("الاسم الكامل") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 20.dp))
+                OutlinedTextField(state.phone, onPhone, label = { Text("رقم الهاتف (اختياري)") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
             }
-            TextButton(onClick = {}) { Text("نسيت كلمة المرور؟") }
-            OutlinedButton(onClick = {}) { Text("إنشاء حساب جديد") }
+            OutlinedTextField(state.email, onEmail, label = { Text("البريد الإلكتروني") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+            OutlinedTextField(state.password, onPassword, label = { Text("كلمة المرور") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+            state.error?.let { Text(it, color = if (it.startsWith("تم")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+            Button(onClick = onSubmit, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) { if (state.isLoading) CircularProgressIndicator(strokeWidth = 2.dp) else Text(if (state.isRegisterMode) "إنشاء الحساب" else "تسجيل الدخول") }
+            TextButton(onClick = onToggle) { Text(if (state.isRegisterMode) "لديك حساب؟ سجّل الدخول" else "ليس لديك حساب؟ أنشئ حسابًا") }
         }
     }
 }
 
 @Composable
-private fun ClientServicesScreen(state: ClientUiState, onRefresh: () -> Unit, onLogout: () -> Unit) {
-    Scaffold(topBar = { TopAppBar(title = { Text("الخدمات المتاحة") }, actions = { TextButton(onClick = onLogout) { Text("خروج") } }) }) { padding ->
+private fun ClientServicesScreen(state: ClientUiState, onRefresh: () -> Unit, onLogout: () -> Unit, onName: (String) -> Unit, onPhone: (String) -> Unit, onSave: () -> Unit) {
+    var profileOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (profileOpen) {
+        ProfileScreen(state, onName, onPhone, onSave, { profileOpen = false }, onLogout)
+        return
+    }
+    Scaffold(topBar = { TopAppBar(title = { Text("الخدمات المتاحة") }, actions = { TextButton(onClick = { profileOpen = true }) { Text("ملفي") }; TextButton(onClick = onLogout) { Text("خروج") } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("الخدمات المنشورة", style = MaterialTheme.typography.titleLarge) }
-            item { OutlinedButton(onClick = onRefresh, enabled = !state.isLoading) { Text("تحديث الخدمات") } }
+            item { Text("الخدمات المنشورة", style = MaterialTheme.typography.titleLarge); OutlinedButton(onClick = onRefresh, enabled = !state.isLoading, modifier = Modifier.padding(top = 8.dp)) { Text("تحديث الخدمات") } }
             state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             if (state.isLoading && state.services.isEmpty()) item { CircularProgressIndicator(modifier = Modifier.padding(24.dp)) }
             if (!state.isLoading && state.services.isEmpty()) item { Text("لا توجد خدمات منشورة حاليًا") }
-            items(state.services, key = { it.id }) { service ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(service.title, style = MaterialTheme.typography.titleMedium)
-                        service.description?.takeIf { it.isNotBlank() }?.let { Text(it, modifier = Modifier.padding(top = 4.dp)) }
-                        Text("الحرفي: ${service.artisan_id.take(8)}…", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(formatPrice(service.price_min, service.price_max))
-                            Button(onClick = {}) { Text("طلب الخدمة") }
-                        }
-                    }
-                }
-            }
+            items(state.services, key = { it.id }) { service -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(service.title, style = MaterialTheme.typography.titleMedium); service.description?.let { Text(it) }; Text("الحرفي: ${service.artisan_id.take(8)}…"); Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text(formatPrice(service.price_min, service.price_max)); Button(onClick = {}) { Text("طلب الخدمة") } } } } }
         }
     }
 }
 
-private fun formatPrice(min: Double?, max: Double?): String = when {
-    min != null && max != null -> "${min.toInt()} – ${max.toInt()} دج"
-    min != null -> "ابتداءً من ${min.toInt()} دج"
-    else -> "السعر عند الطلب"
+@Composable
+private fun ProfileScreen(state: ClientUiState, onName: (String) -> Unit, onPhone: (String) -> Unit, onSave: () -> Unit, onBack: () -> Unit, onLogout: () -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text("ملفي الشخصي") }, navigationIcon = { TextButton(onClick = onBack) { Text("رجوع") } }, actions = { TextButton(onClick = onLogout) { Text("خروج") } }) }) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
+            Text("بيانات الحساب", style = MaterialTheme.typography.headlineSmall)
+            OutlinedTextField(state.displayName, onName, label = { Text("الاسم الكامل") }, modifier = Modifier.fillMaxWidth().padding(top = 20.dp), singleLine = true)
+            OutlinedTextField(state.phone, onPhone, label = { Text("رقم الهاتف") }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), singleLine = true)
+            Text(state.email, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp)) }
+            Button(onClick = onSave, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth().padding(top = 20.dp)) { Text("حفظ التغييرات") }
+        }
+    }
 }
 
+private fun formatPrice(min: Double?, max: Double?): String = when { min != null && max != null -> "${min.toInt()} – ${max.toInt()} دج"; min != null -> "ابتداءً من ${min.toInt()} دج"; else -> "السعر عند الطلب" }
