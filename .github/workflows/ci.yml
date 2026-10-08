@@ -19,6 +19,6 @@ jobs:
         with: {distribution: temurin, java-version: '17'}
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
-      - run: gradle assembleClientDebug assembleAdminDebug
+      - run: gradle :client-app:assembleDebug :admin-app:assembleDebug
       - uses: actions/upload-artifact@v4
         with: {name: HaraftyDz-APKs, path: '**/build/outputs/apk/**/*.apk'}
