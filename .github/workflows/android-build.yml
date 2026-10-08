@@ -1,0 +1,80 @@
+name: HaraftyDz Android Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-reference-data:
+    name: Validate Algeria reference data
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate 69 wilayas and 1541 communes
+        run: python3 scripts/validate_admin_data.py data/algeria.json
+
+  build-apks:
+    name: Build Android APKs
+    runs-on: ubuntu-latest
+    needs: validate-reference-data
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+
+      - name: Build Client debug APK
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: gradle --no-daemon :client-app:assembleDebug
+
+      - name: Build Admin debug APK
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: gradle --no-daemon :admin-app:assembleDebug
+
+      - name: Rename APKs
+        run: |
+          mkdir -p artifacts
+          cp client-app/build/outputs/apk/debug/client-app-debug.apk artifacts/HaraftyDz-Client-debug.apk
+          cp admin-app/build/outputs/apk/debug/admin-app-debug.apk artifacts/HaraftyDz-Admin-debug.apk
+
+      - name: Upload Client APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HaraftyDz-Client-debug
+          path: artifacts/HaraftyDz-Client-debug.apk
+          if-no-files-found: error
+
+      - name: Upload Admin APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HaraftyDz-Admin-debug
+          path: artifacts/HaraftyDz-Admin-debug.apk
+          if-no-files-found: error
