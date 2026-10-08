@@ -17,7 +17,7 @@ data class ProfileRow(val id: String, val display_name: String, val phone: Strin
 
 data class ClientUiState(
     val email: String = "", val password: String = "", val displayName: String = "", val phone: String = "",
-    val isRegisterMode: Boolean = false, val isAuthenticated: Boolean = false, val isLoading: Boolean = false,
+    val isRegisterMode: Boolean = false, val isAuthenticated: Boolean = false, val isGuest: Boolean = false, val isLoading: Boolean = false,
     val services: List<ServiceRow> = emptyList(), val error: String? = null
 )
 
@@ -33,6 +33,7 @@ class ClientViewModel : ViewModel() {
     fun updateDisplayName(v: String) { _state.value = _state.value.copy(displayName = v, error = null) }
     fun updatePhone(v: String) { _state.value = _state.value.copy(phone = v, error = null) }
     fun setRegisterMode(v: Boolean) { _state.value = _state.value.copy(isRegisterMode = v, error = null) }
+    fun browseAsGuest() { _state.value = _state.value.copy(isGuest = true, error = null); loadServices() }
 
     fun signIn() {
         val s = _state.value
@@ -40,7 +41,7 @@ class ClientViewModel : ViewModel() {
         viewModelScope.launch {
             busy(true)
             runCatching { client.auth.signInWith(Email) { email = s.email.trim(); password = s.password } }
-                .onSuccess { _state.value = _state.value.copy(isAuthenticated = true, isLoading = false); loadProfile(); loadServices() }
+                .onSuccess { _state.value = _state.value.copy(isAuthenticated = true, isGuest = false, isLoading = false); loadProfile(); loadServices() }
                 .onFailure { fail(it, "تعذر تسجيل الدخول") }
         }
     }
