@@ -20,3 +20,7 @@ SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 ```
 
 يُسمح بتضمين publishable/anon key في تطبيقات العميل، لكن يُمنع تمامًا تضمين `service_role` أو أي مفتاح إداري في APK.
+
+## طبقة الاتصال في Android
+
+كل تطبيق يحتوي على `SupabaseConfig` و`SupabaseClientProvider` ويثبت وحدات Auth وPostgREST وStorage وRealtime. يعتمد البناء على `SUPABASE_URL` و`SUPABASE_PUBLISHABLE_KEY` من `local.properties` أو متغيرات البيئة.

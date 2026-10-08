@@ -10,3 +10,7 @@
 ## Supabase
 
 المستودع مربوط بمشروع Supabase `HaraftyDz2` عبر [supabase/config.toml](supabase/config.toml). راجع [توثيق الربط](supabase/README.md).
+
+## إعداد اتصال التطبيقات بـ Supabase
+
+انسخ `local.properties.example` إلى `local.properties` محليًا، ثم ضع `SUPABASE_PUBLISHABLE_KEY`. تُحوّل القيم أثناء البناء إلى `BuildConfig` في كل تطبيق. لا تستخدم `service_role` ولا تلتزم بملف `local.properties`.
