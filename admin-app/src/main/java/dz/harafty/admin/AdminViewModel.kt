@@ -12,8 +12,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class AdminRoleRow(val user_id: String, val role: String)
 @Serializable data class AdminServiceRow(val id: String, val artisan_id: String, val title: String, val description: String? = null, val is_active: Boolean = true)
 @Serializable data class AdminRequestRow(val id: String, val customer_id: String, val artisan_id: String? = null, val commune_id: String? = null, val description: String, val status: String = "pending", val created_at: String? = null)
+@Serializable data class FinancialTransactionRow(val id: String, val request_id: String? = null, val amount: Double, val currency: String = "DZD", val transaction_type: String, val status: String, val created_at: String? = null)
 
-data class AdminUiState(val email: String = "", val password: String = "", val isAuthenticated: Boolean = false, val isLoading: Boolean = false, val tab: Int = 0, val services: List<AdminServiceRow> = emptyList(), val requests: List<AdminRequestRow> = emptyList(), val error: String? = null)
+data class AdminUiState(val email: String = "", val password: String = "", val isAuthenticated: Boolean = false, val isLoading: Boolean = false, val tab: Int = 0, val services: List<AdminServiceRow> = emptyList(), val requests: List<AdminRequestRow> = emptyList(), val transactions: List<FinancialTransactionRow> = emptyList(), val error: String? = null)
 
 class AdminViewModel : ViewModel() {
     private val client = SupabaseClientProvider.client
@@ -45,8 +46,9 @@ class AdminViewModel : ViewModel() {
             runCatching {
                 val services = client.from("artisan_services").select().decodeList<AdminServiceRow>()
                 val requests = client.from("service_requests").select().decodeList<AdminRequestRow>()
-                services to requests
-            }.onSuccess { (services, requests) -> _state.value = _state.value.copy(services = services, requests = requests, isLoading = false) }
+                val transactions = client.from("financial_transactions").select().decodeList<FinancialTransactionRow>()
+                Triple(services, requests, transactions)
+            }.onSuccess { (services, requests, transactions) -> _state.value = _state.value.copy(services = services, requests = requests, transactions = transactions, isLoading = false) }
                 .onFailure { fail(it, "تعذر تحميل لوحة الإدارة") }
         }
     }

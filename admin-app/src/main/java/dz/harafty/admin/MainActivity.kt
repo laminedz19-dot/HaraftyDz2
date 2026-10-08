@@ -63,10 +63,10 @@ private fun AdminLogin(state: AdminUiState, onEmail: (String) -> Unit, onPasswor
 private fun AdminDashboard(state: AdminUiState, vm: AdminViewModel) {
     Scaffold(topBar = { TopAppBar(title = { Text("لوحة الإدارة") }, actions = { TextButton(onClick = vm::signOut) { Text("خروج") } }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = state.tab) { Tab(selected = state.tab == 0, onClick = { vm.selectTab(0) }, text = { Text("الخدمات (${state.services.size})") }); Tab(selected = state.tab == 1, onClick = { vm.selectTab(1) }, text = { Text("الطلبات (${state.requests.size})") }) }
+            TabRow(selectedTabIndex = state.tab) { Tab(selected = state.tab == 0, onClick = { vm.selectTab(0) }, text = { Text("الخدمات (${state.services.size})") }); Tab(selected = state.tab == 1, onClick = { vm.selectTab(1) }, text = { Text("الطلبات (${state.requests.size})") }); Tab(selected = state.tab == 2, onClick = { vm.selectTab(2) }, text = { Text("الإحصائيات") }) }
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
             if (state.isLoading && state.services.isEmpty() && state.requests.isEmpty()) CircularProgressIndicator(modifier = Modifier.padding(24.dp))
-            if (state.tab == 0) ServicesTab(state.services, vm::setServiceActive) else RequestsTab(state.requests, vm::updateRequestStatus)
+            if (state.tab == 0) ServicesTab(state.services, vm::setServiceActive) else if (state.tab == 1) RequestsTab(state.requests, vm::updateRequestStatus) else StatisticsTab(state)
         }
     }
 }
@@ -96,3 +96,43 @@ private fun RequestsTab(requests: List<AdminRequestRow>, onStatus: (String, Stri
         }
     }
 }
+
+@Composable
+private fun StatisticsTab(state: AdminUiState) {
+    val completedRequests = state.requests.count { it.status == "completed" }
+    val pendingRequests = state.requests.count { it.status == "pending" }
+    val activeServices = state.services.count { it.is_active }
+    val completedPayments = state.transactions.filter { it.status == "completed" && it.transaction_type == "service_payment" }
+    val totalRevenue = completedPayments.sumOf { it.amount }
+    val refunds = state.transactions.filter { it.status == "refunded" }.sumOf { it.amount }
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Text("الإحصائيات والتقارير المالية", style = MaterialTheme.typography.headlineSmall); Text("مؤشرات محسوبة من البيانات الموجودة في Supabase") }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MetricCard("الخدمات النشطة", activeServices.toString(), Modifier.weight(1f))
+                MetricCard("الطلبات المكتملة", completedRequests.toString(), Modifier.weight(1f))
+                MetricCard("قيد الانتظار", pendingRequests.toString(), Modifier.weight(1f))
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("التقرير المالي — الدينار الجزائري", style = MaterialTheme.typography.titleLarge)
+                    Text("الإيرادات المكتملة: ${formatDzd(totalRevenue)} دج", modifier = Modifier.padding(top = 10.dp))
+                    Text("المبالغ المسترجعة: ${formatDzd(refunds)} دج")
+                    Text("المعاملات المكتملة: ${completedPayments.size}")
+                    Text("لا يتم احتساب أي مبلغ غير مسجل في financial_transactions.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+        }
+        item { Text("آخر المعاملات", style = MaterialTheme.typography.titleLarge) }
+        if (state.transactions.isEmpty()) item { Text("لا توجد معاملات مالية مسجلة حتى الآن") }
+        items(state.transactions.take(20), key = { it.id }) { tx ->
+            Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column { Text(tx.transaction_type); Text("الحالة: ${tx.status}") }; Text("${formatDzd(tx.amount)} ${tx.currency}") } }
+        }
+    }
+}
+
+@Composable
+private fun MetricCard(label: String, value: String, modifier: Modifier) { Card(modifier) { Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(value, style = MaterialTheme.typography.titleLarge); Text(label) } } }
+private fun formatDzd(value: Double): String = "%,.2f".format(java.util.Locale.US, value)
