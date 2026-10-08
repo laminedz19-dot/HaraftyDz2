@@ -1,1 +1,0 @@
-ALTER TABLE `subscriptionPayments` ADD `providerDraft` text;
