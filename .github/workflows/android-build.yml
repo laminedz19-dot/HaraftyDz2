@@ -1,4 +1,4 @@
-name: HaraftyDz Android Build
+name: HaraftyDz Android CI
 
 on:
   push:
@@ -21,64 +21,88 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Validate 69 wilayas and 1541 communes
+      - name: Validate JSON reference data
         run: python3 scripts/validate_admin_data.py data/algeria.json
 
   build-apks:
     name: Build Android APKs
     runs-on: ubuntu-latest
     needs: validate-reference-data
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
 
-      - name: Install Android SDK packages
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+          accept-android-sdk-licenses: true
+
+      - name: Verify toolchain and Gradle Wrapper
+        run: |
+          set -euo pipefail
+          test -x ./gradlew || { echo 'Gradle Wrapper is missing or not executable.' >&2; exit 1; }
+          ./gradlew --version
+          sdkmanager --list_installed | grep -E 'platform-tools|platforms;android-35|build-tools;35.0.0'
+
+      - name: Check Supabase build configuration
         shell: bash
         run: |
-          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -path '*/bin/sdkmanager' 2>/dev/null | sort -V | tail -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager || true)"
+          set -euo pipefail
+          if [[ -z "${SUPABASE_URL:-}" ]]; then
+            echo 'SUPABASE_URL is not configured as a GitHub Actions Variable; debug builds will contain an empty URL.'
+          else
+            case "$SUPABASE_URL" in
+              https://*) echo 'SUPABASE_URL is configured over HTTPS.' ;;
+              *) echo 'SUPABASE_URL must use HTTPS.' >&2; exit 1 ;;
+            esac
           fi
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager was not found under $SDK_ROOT" >&2
+          if [[ -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]]; then
+            echo 'SUPABASE_PUBLISHABLE_KEY is not configured as a GitHub Actions Secret; debug builds are compile-only.'
+          elif [[ "$SUPABASE_PUBLISHABLE_KEY" == *service_role* ]]; then
+            echo 'A service_role key must never be passed to an Android build.' >&2
             exit 1
+          else
+            echo 'SUPABASE_PUBLISHABLE_KEY is configured without printing its value.'
           fi
-          echo "Using $SDKMANAGER"
-          SDK_BIN="$(dirname "$SDKMANAGER")"
-          echo "$SDK_BIN" >> "$GITHUB_PATH"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10'
+      - name: Run available unit tests
+        run: ./gradlew --no-daemon test
 
       - name: Build Client debug APK
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: gradle --no-daemon :client-app:assembleDebug
+        run: ./gradlew --no-daemon :client-app:assembleDebug
 
       - name: Build Admin debug APK
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: gradle --no-daemon :admin-app:assembleDebug
+        run: ./gradlew --no-daemon :admin-app:assembleDebug
 
-      - name: Rename APKs
+      - name: Verify and prepare APKs
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p artifacts
-          cp client-app/build/outputs/apk/debug/client-app-debug.apk artifacts/HaraftyDz-Client-debug.apk
-          cp admin-app/build/outputs/apk/debug/admin-app-debug.apk artifacts/HaraftyDz-Admin-debug.apk
+          client_apk="$(find client-app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          admin_apk="$(find admin-app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          [[ -n "$client_apk" ]] || { echo 'Client APK was not produced.' >&2; exit 1; }
+          [[ -n "$admin_apk" ]] || { echo 'Admin APK was not produced.' >&2; exit 1; }
+          [[ -s "$client_apk" ]] || { echo "Client APK is empty: $client_apk" >&2; exit 1; }
+          [[ -s "$admin_apk" ]] || { echo "Admin APK is empty: $admin_apk" >&2; exit 1; }
+          cp -- "$client_apk" artifacts/HaraftyDz-Client-debug.apk
+          cp -- "$admin_apk" artifacts/HaraftyDz-Admin-debug.apk
+          printf 'Client APK: %s (%s bytes)\n' "$client_apk" "$(stat -c '%s' "$client_apk")"
+          printf 'Admin APK: %s (%s bytes)\n' "$admin_apk" "$(stat -c '%s' "$admin_apk")"
 
       - name: Upload Client APK
         uses: actions/upload-artifact@v4
@@ -86,6 +110,7 @@ jobs:
           name: HaraftyDz-Client-debug
           path: artifacts/HaraftyDz-Client-debug.apk
           if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Admin APK
         uses: actions/upload-artifact@v4
@@ -93,3 +118,4 @@ jobs:
           name: HaraftyDz-Admin-debug
           path: artifacts/HaraftyDz-Admin-debug.apk
           if-no-files-found: error
+          retention-days: 14
